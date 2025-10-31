@@ -26,6 +26,12 @@ const businessSchema = new mongoose.Schema({
     ref: "State",
     required: true,
   },
-});
+  users: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+    },
+  ],
+}, { timestamps: true });
 
 export default mongoose.model("Business", businessSchema);

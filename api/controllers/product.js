@@ -90,7 +90,7 @@ export default class extends BaseController {
    */
   getTypes = async (req, res) => {
     try {
-      const products = await this.model[1].find({});
+      const products = await this.model[1].find({}, '-__v');
 
       res.status(200).json(products);
     } catch (err) {

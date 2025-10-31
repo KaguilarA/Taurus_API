@@ -1,19 +1,32 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 
-const SALT_ROUNDS = 10;
+process.loadEnvFile();
+
+const SALT_ROUNDS = parseInt(process.env.PASSWORD_SALT_ROUNDS, 10) || 10;
 
 const userSchema = new mongoose.Schema(
   {
     name: {
       type: String,
       required: true,
+      trim: true,
+      maxlength: 100,
     },
-    lastname: String,
-    username: {
+    lastname: {
+      type: String,
+      required: true,
+      trim: true,
+      maxlength: 100,
+    },
+    email: {
       type: String,
       required: true,
       unique: true,
+      trim: true,
+      lowercase: true,
+      maxlength: 150,
+      match: [/^\S+@\S+\.\S+$/, "Invalid email format"],
     },
     password_hash: {
       type: String,
@@ -27,7 +40,7 @@ const userSchema = new mongoose.Schema(
     images: [
       {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "Images",
+        ref: "Image",
       },
     ],
     permission_list: [
@@ -38,25 +51,18 @@ const userSchema = new mongoose.Schema(
     ],
   },
   {
-    virtuals: {
-      fullName: {
-        get() {
-          return `${this.name} ${this.lastname || ""}`.trim();
-        },
-      },
-      toJSON: {
-        virtuals: true,
-      },
-    },
     timestamps: true,
+    collation: { locale: "en", strength: 2 },
   }
 );
 
-/**
- * Pre-save: encripta la contraseña SOLO al crear
- */
+userSchema.index(
+  { email: 1 },
+  { unique: true, collation: { locale: "en", strength: 2 } }
+);
+
 userSchema.pre("save", async function (next) {
-  if (this.isNew) {
+  if (this.isModified("password_hash")) {
     try {
       const salt = await bcrypt.genSalt(SALT_ROUNDS);
       this.password_hash = await bcrypt.hash(this.password_hash, salt);
@@ -67,9 +73,6 @@ userSchema.pre("save", async function (next) {
   next();
 });
 
-/**
- * Pre-update: encripta la contraseña si es actualizada
- */
 userSchema.pre("findOneAndUpdate", async function (next) {
   const update = this.getUpdate();
 
@@ -84,5 +87,9 @@ userSchema.pre("findOneAndUpdate", async function (next) {
   }
   next();
 });
+
+userSchema.methods.validatePassword = async function (password) {
+  return bcrypt.compare(password, this.password_hash);
+};
 
 export default mongoose.model("User", userSchema);

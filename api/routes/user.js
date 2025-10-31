@@ -15,7 +15,7 @@ export default (model) => {
   router.get(
     "/",
     [validateAuthUser, validateUserPermissions],
-    controller.getAll
+    controller.getAll.bind(controller)
   );
 
   /**

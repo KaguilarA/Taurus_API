@@ -1,6 +1,5 @@
 import mongoose from "mongoose";
 
-// Load environment variables
 process.loadEnvFile();
 
 const mongodburl = process.env.DB_HOST;

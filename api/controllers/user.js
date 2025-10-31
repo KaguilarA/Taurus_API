@@ -1,4 +1,5 @@
 import BaseController from '../../utils/baseController.js';
+import exceptions from "../../utils/exceptions.js";
 
 export default class extends BaseController {
 
@@ -24,15 +25,8 @@ export default class extends BaseController {
    * @param {Object} req The request object.
    * @param {Object} res The response object.
    */
-  register = async (req, res) => {
-    try {
-      const newModel = new this.model({ ...req.body });
-      const registeredModel = await newModel.save();
-
-      res.status(201).json(registeredModel);
-    } catch (err) {
-      res.status(409).json({ message: err.message });
-    }
+  register(req, res) {
+    exceptions.register(this.model, req.body, res.status.bind(res));
   }
 
   /**
@@ -57,10 +51,14 @@ export default class extends BaseController {
    * @param {Object} req The request object.
    * @param {Object} res The response object.
    */
-  getAll = async (req, res) => {
+  async getAll(req, res) {
     try {
-      // const users = await this.model.getAll();
-      // res.status(200).json(users);
+      const users = await this.model
+        .find({}, "-__v -permission_list -password_hash -createdAt -updatedAt")
+        .populate("state", "-__v -type")
+        .lean();
+
+      res.status(200).json(users);
     } catch (err) {
       res.status(404).json({ message: err.message });
     }
@@ -73,6 +71,9 @@ export default class extends BaseController {
    */
   getActive = async (req, res) => {
     try {
+      const users = await this.model.find({ state: 'active' });
+
+      console.log(users);
       // const users = await this.model.getByState(true);
       // res.status(200).json(users);
     } catch (err) {
@@ -155,9 +156,10 @@ export default class extends BaseController {
     try {
       const { username, password } = req.body;
       console.log('Validating password for user:', username);
-      // if (!username || !password) res.status(400).json({ message: 'Username and password are required' });
       // const isValid = await this.model.validatePassword(username, password);
       // res.status(200).json(isValid);
+
+      res.setHeader('Set-Cookie', 'loggedIn=true');
     } catch (err) {
       res.status(404).json({ message: err.message });
     }
