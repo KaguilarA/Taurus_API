@@ -1,5 +1,5 @@
 {
-  "name": "back-end",
+  "name": "Taurus-API",
   "version": "1.0.0",
   "main": "index.js",
   "type": "module",
@@ -13,7 +13,8 @@
     "npm": ">=10.9.0"
   },
   "author": "Kevin Aguilar",
-  "license": "ISC",
+  "license": "UNLICENSED",
+  "private": true,
   "description": "API for a bar/restaurant to handle products, invoices, and inventory management.",
   "dependencies": {
     "bcrypt": "^6.0.0",
