@@ -1,25 +1,23 @@
-import mongoose from "mongoose";
+import TaurusModel from "./../utils/model.js";
 
-const cartSchema = new mongoose.Schema({
-  name: String,
+export default TaurusModel("Cart", {
+  name: {
+    type: String,
+    trim: true,
+  },
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
-    required: true,
   },
   state: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "State",
     required: true,
   },
-  cart_items: [
+  cartItems: [
     {
       type: mongoose.Schema.Types.ObjectId,
       ref: "CartItem",
     },
   ],
-}, {
-  timestamps: true,
 });
-
-export default mongoose.model("Cart", cartSchema);
