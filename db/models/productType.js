@@ -1,6 +1,5 @@
 import TaurusModel from "./../utils/model.js";
 
-
 export default TaurusModel("ProductType", {
   name: {
     type: String,
@@ -8,9 +7,5 @@ export default TaurusModel("ProductType", {
     unique: true,
     trim: true,
     maxlength: [100, "Name cannot exceed 100 characters"],
-  },
-  hasStock: {
-    type: Boolean,
-    default: true,
-  },
+  }
 });

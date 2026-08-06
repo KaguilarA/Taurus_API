@@ -9,6 +9,10 @@ export default TaurusModel({
     type: mongoose.Schema.Types.ObjectId,
     ref: "Promo",
   },
+  unitPrice: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Price",
+  },
   quantity: {
     type: Number,
     default: 1,
@@ -17,10 +21,5 @@ export default TaurusModel({
       validator: Number.isInteger,
       message: "Quantity must be an integer",
     },
-  },
-  state: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "State",
-    required: true,
-  },
+  }
 });

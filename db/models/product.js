@@ -26,6 +26,10 @@ export default TaurusModel("Product", {
     ref: "ProductType",
     required: true,
   },
+  useStock: {
+    type: Boolean,
+    default: false,
+  },
   stock: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "ProductStock",
