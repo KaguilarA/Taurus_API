@@ -9,13 +9,18 @@
     "start": "node index.js"
   },
   "engines": {
-    "node": ">=23.1.0",
-    "npm": ">=10.9.0"
+    "node": ">=24.0.0",
+    "npm": ">=10.0.0"
   },
-  "author": "Kevin Aguilar",
+  "packageManager": "npm@12.0.1",
+  "author": {
+    "name": "Kevin Aguilar",
+    "email": "kevin.231@hotmail.com",
+    "url": "https://github.com/KaguilarA"
+  },
   "license": "UNLICENSED",
   "private": true,
-  "description": "API for a bar/restaurant to handle products, invoices, and inventory management.",
+  "description": "API to manage the Taurus project",
   "dependencies": {
     "bcrypt": "^6.0.0",
     "body-parser": "^1.20.3",
