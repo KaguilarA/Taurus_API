@@ -1,10 +1,11 @@
-import db from './db/db.js';
-import app from './app.js';
+import { OwlModel } from "owl-expressjs-utils";
 
-// Load environment variables
+import db from "./db/db.js";
+import app from "./app.js";
+
 process.loadEnvFile();
 
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 
 // Start the server
 app.listen(PORT, () => {

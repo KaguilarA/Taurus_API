@@ -35,6 +35,7 @@
     "mysql2": "^3.11.4",
     "nodemailer": "^6.9.16",
     "nodemailer-sendgrid-transport": "^0.2.0",
+    "owl-expressjs-utils": "^1.0.2",
     "pug": "^3.0.3"
   }
 }
