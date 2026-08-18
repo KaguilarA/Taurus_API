@@ -1,6 +1,6 @@
 import { OwlModel } from "owl-expressjs-utils";
 
-export default OwlModel("Promo", {
+const PromoData = {
   name: {
     type: String,
     required: true,
@@ -25,4 +25,6 @@ export default OwlModel("Promo", {
     type: Number,
     default: 1,
   },
-});
+};
+
+export default OwlModel("Promo", PromoData);

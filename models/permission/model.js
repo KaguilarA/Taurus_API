@@ -1,6 +1,6 @@
 import { OwlModel } from "owl-expressjs-utils";
 
-export default OwlModel("Permission", {
+const PermissionData = {
   name: {
     type: String,
     required: true,
@@ -17,4 +17,6 @@ export default OwlModel("Permission", {
     trim: true,
     maxlength: 255,
   },
-});
+};
+
+export default OwlModel("Permission", PermissionData);

@@ -31,8 +31,4 @@ const EmailData = {
   },
 };
 
-/**
- * Email model definition using the OwlModel factory.
- * Handles structural properties for electronic mail validation, uniqueness, and relational state reference.
- */
 export default OwlModel("Email", EmailData);
