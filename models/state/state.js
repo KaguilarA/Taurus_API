@@ -1,6 +1,8 @@
 import { OwlModel } from "owl-expressjs-utils";
 
-export default OwlModel("State", {
+const statesHandlers = ["users", "business", "promos", "products", "cart"];
+
+const stateData = {
   name: {
     type: String,
     trim: true,
@@ -17,7 +19,9 @@ export default OwlModel("State", {
   },
   type: {
     type: String,
-    enum: ["users", "business", "promos", "products", "cart"],
+    enum: statesHandlers,
     required: true,
   },
-});
+};
+
+export default OwlModel("State", stateData);
