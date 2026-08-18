@@ -1,6 +1,7 @@
+import { Schema } from "mongoose";
 import { OwlModel } from "owl-expressjs-utils";
 
-export default OwlModel("Product", {
+const ProductData = {
   name: {
     type: String,
     required: true,
@@ -13,15 +14,17 @@ export default OwlModel("Product", {
     maxlength: [500, "Product description cannot exceed 500 characters"],
   },
   state: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: Schema.Types.ObjectId,
     ref: "State",
     required: true,
   },
   type: [
     {
-      type: mongoose.Schema.Types.ObjectId,
+      type: Schema.Types.ObjectId,
       ref: "ProductType",
       required: true,
     },
   ],
-});
+};
+
+export default OwlModel("Product", ProductData);

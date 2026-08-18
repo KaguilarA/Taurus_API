@@ -1,6 +1,7 @@
+import { Schema } from "mongoose";
 import { OwlModel } from "owl-expressjs-utils";
 
-export default OwlModel("ProductStock", {
+const ProductStockData = {
   stock: {
     type: Number,
     required: true,
@@ -9,8 +10,10 @@ export default OwlModel("ProductStock", {
     min: [0, "Stock cannot be negative"],
   },
   owner: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: Schema.Types.ObjectId,
     ref: "Product",
     required: true,
   },
-});
+};
+
+export default OwlModel("ProductStock", ProductStockData);
