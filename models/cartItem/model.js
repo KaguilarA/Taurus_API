@@ -10,7 +10,7 @@ const CartItemData = {
   ownerType: {
     type: String,
     required: true,
-    enum: ["Business", "User"],
+    enum: ["Product", "Promo"],
   },
   owner: {
     type: Schema.Types.ObjectId,
