@@ -6,15 +6,18 @@ import session from "express-session";
 import mongoDBStore from "connect-mongodb-session";
 
 import APIRoutes from "./api/api.js";
+import auditMiddleware from "./middlewares/audit.js";
 
-import businessModel from "./api/models/business.js";
-import cartModel from "./api/models/cart.js";
-import permissionModel from "./api/models/permission.js";
-import productModel from "./api/models/product.js";
-import productTypeModel from "./api/models/productType.js";
-import promoModel from "./api/models/promo.js";
-import userModel from "./api/models/user.js";
-import statesModel from "./api/models/state.js";
+import businessModel from "./models/business/model.js";
+import cartModel from "./models/cart/model.js";
+import permissionModel from "./models/permission/model.js";
+import productModel from "./models/product/model.js";
+import productTypeModel from "./models/productType/model.js";
+import promoModel from "./models/promo/model.js";
+import userModel from "./models/user/model.js";
+import statesModel from "./models/state/model.js";
+import userPermissionModel from "./models/userPermission/model.js";
+import auditLogModel from "./models/auditLog/model.js";
 
 // Load environment variables
 process.loadEnvFile();
@@ -57,6 +60,8 @@ app.use(
   })
 );
 
+app.use(auditMiddleware(auditLogModel));
+
 /**
  * @route /api
  * @description Routes for API-related operations
@@ -72,6 +77,8 @@ app.use(
     promoModel,
     userModel,
     statesModel,
+    userPermissionModel,
+    auditLogModel,
   })
 );
 

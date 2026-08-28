@@ -18,12 +18,5 @@ La contraseña sigue siendo obligatoria al guardar, pero no se expone en los res
 - Cada `User` requiere un `State`.
 - Puede ser propietario de `Email`, `Phone` e `Image` mediante referencias polimórficas.
 - Puede tener `Cart` asociados.
+- Puede tener permisos activos mediante `UserPermission`.
 
-```mermaid
-flowchart LR
-	User -->|state| State
-	User -.->|ownerType = User| Email
-	User -.->|ownerType = User| Phone
-	User -.->|ownerType = User| Image
-	User -.->|user| Cart
-```

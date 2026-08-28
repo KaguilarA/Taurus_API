@@ -10,3 +10,5 @@ Catálogo de permisos disponibles para autorización.
 | `description` | `String` | No | `trim`, máximo 255 caracteres |
 
 El nombre debe usar únicamente letras mayúsculas, números y guiones bajos. Este modelo no declara relaciones con usuarios o roles.
+
+La asignación a usuarios se almacena en `UserPermission`, que permite conceder o revocar un permiso sin eliminar el historial de la operación. Las acciones de gestión requieren los permisos `PERMISSION_READ`, `PERMISSION_GRANT` y `PERMISSION_REVOKE`, respectivamente.
