@@ -1,3 +1,4 @@
+import { Schema } from "mongoose";
 import { OwlModel } from "owl-expressjs-utils";
 
 const PromoData = {
@@ -17,7 +18,7 @@ const PromoData = {
     index: true,
   },
   state: {
-    type: mongoose.Schema.Types.ObjectId,
+    type: Schema.Types.ObjectId,
     ref: "State",
     required: true,
   },
