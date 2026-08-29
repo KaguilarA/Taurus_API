@@ -54,3 +54,5 @@ export const UserPermissionModel = OwlModel(
   UserPermissionModelName,
   UserPermissionData,
 );
+
+export { ActionLogModelName, BusinessModelName, CartModelName, CartItemModelName, EmailModelName, ImageModelName, PermissionModelName, PhoneModelName, PromoModelName, PromoProductModelName, ProductModelName, ProductStockModelName, ProductTypeModelName, StateModelName, UserModelName, UserPermissionModelName };
