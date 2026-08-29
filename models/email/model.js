@@ -1,7 +1,13 @@
 import { Schema } from "mongoose";
-import { OwlModel } from "owl-expressjs-utils";
+import { ModelName as BusinessModelName } from "./../business/model.js";
+import { ModelName as StateModelName } from "./../state/model.js";
+import { ModelName as UserModelName } from "./../user/model.js";
 
-const EmailData = {
+const ownerTypes = [BusinessModelName, UserModelName];
+
+export const ModelName = "Email";
+
+export default {
   email: {
     type: String,
     required: [true, "El correo electrónico es obligatorio."],
@@ -16,7 +22,7 @@ const EmailData = {
   ownerType: {
     type: String,
     required: true,
-    enum: ["Business", "User"],
+    enum: ownerTypes,
   },
   owner: {
     type: Schema.Types.ObjectId,
@@ -26,9 +32,7 @@ const EmailData = {
   },
   state: {
     type: Schema.Types.ObjectId,
-    ref: "State",
+    ref: StateModelName,
     required: true,
   },
 };
-
-export default OwlModel("Email", EmailData);

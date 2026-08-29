@@ -1,7 +1,20 @@
 import { Schema } from "mongoose";
-import { OwlModel } from "owl-expressjs-utils";
+import { ModelName as BusinessModelName } from "./../business/model.js";
+import { ModelName as PromoModelName } from "./../promo/model.js";
+import { ModelName as ProductModelName } from "./../product/model.js";
+import { ModelName as StateModelName } from "./../state/model.js";
+import { ModelName as UserModelName } from "./../user/model.js";
 
-const ImageData = {
+const ownerTypes = [
+  ProductModelName,
+  PromoModelName,
+  UserModelName,
+  BusinessModelName,
+];
+
+export const ModelName = "Image";
+
+export default {
   url: {
     type: String,
     required: true,
@@ -13,14 +26,10 @@ const ImageData = {
     required: true,
     trim: true,
   },
-  isMain: {
-    type: Boolean,
-    default: false,
-  },
   ownerType: {
     type: String,
     required: true,
-    enum: ["Product", "Promo", "User", "Business"],
+    enum: ownerTypes,
   },
   owner: {
     type: Schema.Types.ObjectId,
@@ -28,6 +37,9 @@ const ImageData = {
     refPath: "ownerType",
     index: true,
   },
+  state: {
+    type: Schema.Types.ObjectId,
+    ref: StateModelName,
+    required: true,
+  },
 };
-
-export default OwlModel("Image", ImageData);

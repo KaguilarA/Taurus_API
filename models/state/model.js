@@ -1,8 +1,8 @@
-import { OwlModel } from "owl-expressjs-utils";
-
 const StatesHandlers = ["users", "business", "promos", "products", "cart"];
 
-const StateData = {
+export const ModelName = "State";
+
+export default {
   name: {
     type: String,
     trim: true,
@@ -23,5 +23,3 @@ const StateData = {
     required: true,
   },
 };
-
-export default OwlModel("State", StateData);

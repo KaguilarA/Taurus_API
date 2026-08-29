@@ -1,7 +1,9 @@
 import { Schema } from "mongoose";
-import { OwlModel } from "owl-expressjs-utils";
+import { ModelName as ProductModelName } from "./../product/model.js";
 
-const ProductStockData = {
+export const ModelName = "ProductStock";
+
+export default {
   stock: {
     type: Number,
     required: true,
@@ -11,9 +13,7 @@ const ProductStockData = {
   },
   owner: {
     type: Schema.Types.ObjectId,
-    ref: "Product",
+    ref: ProductModelName,
     required: true,
   },
 };
-
-export default OwlModel("ProductStock", ProductStockData);

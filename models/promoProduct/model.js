@@ -1,17 +1,27 @@
 import { Schema } from "mongoose";
-import { OwlModel } from "owl-expressjs-utils";
+import { ModelName as PromoModelName } from "./../promo/model.js";
+import { ModelName as ProductModelName } from "./../product/model.js";
 
-const PromoProductData = {
+export const ModelName = "PromoProduct";
+
+export default {
   promo: {
     type: Schema.Types.ObjectId,
-    ref: "Promo",
+    ref: PromoModelName,
     required: true,
   },
   products: {
     type: Schema.Types.ObjectId,
-    ref: "Product",
+    ref: ProductModelName,
     required: true,
   },
+  quantity: {
+    type: Number,
+    default: 1,
+    min: [1, "Quantity must be at least 1"],
+    validate: {
+      validator: Number.isInteger,
+      message: "Quantity must be an integer",
+    },
+  },
 };
-
-export default OwlModel("PromoProduct", PromoProductData);

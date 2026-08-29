@@ -1,6 +1,6 @@
-import { OwlModel } from "owl-expressjs-utils";
+export const ModelName = "ProductType";
 
-const ProductTypeData = {
+export default {
   name: {
     type: String,
     required: true,
@@ -13,5 +13,3 @@ const ProductTypeData = {
     trim: true,
   },
 };
-
-export default OwlModel("ProductType", ProductTypeData);

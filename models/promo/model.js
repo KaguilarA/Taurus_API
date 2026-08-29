@@ -1,7 +1,9 @@
 import { Schema } from "mongoose";
-import { OwlModel } from "owl-expressjs-utils";
+import { ModelName as StateModelName } from "./../state/model.js";
 
-const PromoData = {
+export const ModelName = "Promo";
+
+export default {
   name: {
     type: String,
     required: true,
@@ -19,13 +21,7 @@ const PromoData = {
   },
   state: {
     type: Schema.Types.ObjectId,
-    ref: "State",
+    ref: StateModelName,
     required: true,
-  },
-  productMaxCount: {
-    type: Number,
-    default: 1,
-  },
+  }
 };
-
-export default OwlModel("Promo", PromoData);

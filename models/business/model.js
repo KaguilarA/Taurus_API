@@ -1,6 +1,6 @@
-import { OwlModel } from "owl-expressjs-utils";
+export const ModelName = "Business";
 
-const BusinessData = {
+export default {
   name: {
     type: String,
     required: true,
@@ -25,7 +25,5 @@ const BusinessData = {
   xUrl: {
     type: String,
     trim: true,
-  }
+  },
 };
-
-export default OwlModel("Business", BusinessData);

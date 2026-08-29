@@ -1,7 +1,11 @@
 import { Schema } from "mongoose";
-import { OwlModel } from "owl-expressjs-utils";
+import { ModelName as StateModelName } from "./../state/model.js";
 
-const UserData = {
+export const ModelName = "User";
+
+export const EncryptedFields = ["password"];
+
+export default {
   name: {
     type: String,
     required: true,
@@ -20,9 +24,7 @@ const UserData = {
   },
   state: {
     type: Schema.Types.ObjectId,
-    ref: "State",
+    ref: StateModelName,
     required: true,
   },
 };
-
-export default OwlModel("User", UserData, ["password"]);

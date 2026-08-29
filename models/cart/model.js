@@ -1,20 +1,21 @@
 import { Schema } from "mongoose";
-import { OwlModel } from "owl-expressjs-utils";
+import { ModelName as StateModelName } from "./../state/model.js";
+import { ModelName as UserModelName } from "./../user/model.js";
 
-const CartData = {
+export const ModelName = "Cart";
+
+export default {
   name: {
     type: String,
-    default: "Cart",
+    default: "Cuenta",
   },
   user: {
     type: Schema.Types.ObjectId,
-    ref: "User",
+    ref: UserModelName,
   },
   state: {
     type: Schema.Types.ObjectId,
-    ref: "State",
+    ref: StateModelName,
     required: true,
   },
 };
-
-export default OwlModel("Cart", CartData);

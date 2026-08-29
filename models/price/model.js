@@ -1,21 +1,23 @@
 import { Schema, Types } from "mongoose";
-import { OwlModel } from "owl-expressjs-utils";
+import { ModelName as ProductModelName } from "./../product/model.js";
+import { ModelName as PromoModelName } from "./../promo/model.js";
+import { ModelName as StateModelName } from "./../state/model.js";
 
-const PriceData = {
+const ownerTypes = [ProductModelName, PromoModelName];
+
+export const ModelName = "Price";
+
+export default {
   amount: {
     type: Types.Decimal128,
     required: true,
     min: 0.01,
     max: 1000000.0,
   },
-  isCurrent: {
-    type: Boolean,
-    default: false,
-  },
   ownerType: {
     type: String,
     required: true,
-    enum: ["Product", "Promo"],
+    enum: ownerTypes,
   },
   owner: {
     type: Schema.Types.ObjectId,
@@ -23,6 +25,9 @@ const PriceData = {
     refPath: "ownerType",
     index: true,
   },
+  state: {
+    type: Schema.Types.ObjectId,
+    ref: StateModelName,
+    required: true,
+  },
 };
-
-export default OwlModel("Price", PriceData);

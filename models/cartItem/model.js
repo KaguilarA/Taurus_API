@@ -1,16 +1,23 @@
 import { Schema } from "mongoose";
-import { OwlModel } from "owl-expressjs-utils";
+import { ModelName as CartModelName } from "./../cart/model.js";
+import { ModelName as ProductModelName } from "./../product/model.js";
+import { ModelName as PromoModelName } from "./../promo/model.js";
+import { ModelName as PriceModelName } from "./../price/model.js";
 
-const CartItemData = {
+const ownerTypes = [ProductModelName, PromoModelName];
+
+export const ModelName = "CartItem";
+
+export default {
   cart: {
     type: Schema.Types.ObjectId,
-    ref: "Cart",
+    ref: CartModelName,
     required: true,
   },
   ownerType: {
     type: String,
     required: true,
-    enum: ["Product", "Promo"],
+    enum: ownerTypes,
   },
   owner: {
     type: Schema.Types.ObjectId,
@@ -20,7 +27,7 @@ const CartItemData = {
   },
   unitPrice: {
     type: Schema.Types.ObjectId,
-    ref: "Price",
+    ref: PriceModelName,
     required: true,
   },
   quantity: {
@@ -33,5 +40,3 @@ const CartItemData = {
     },
   },
 };
-
-export default OwlModel("CartItem", CartItemData);
