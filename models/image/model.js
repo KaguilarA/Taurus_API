@@ -1,20 +1,17 @@
 import { Schema } from "mongoose";
-import { ModelName as BusinessModelName } from "./../business/model.js";
-import { ModelName as PromoModelName } from "./../promo/model.js";
-import { ModelName as ProductModelName } from "./../product/model.js";
-import { ModelName as StateModelName } from "./../state/model.js";
-import { ModelName as UserModelName } from "./../user/model.js";
+import BusinessData from "./../business/model.js";
+import PromoData from "./../promo/model.js";
+import ProductData from "./../product/model.js";
+import StateData from "./../state/model.js";
+import UserData from "./../user/model.js";
 
 const ownerTypes = [
-  ProductModelName,
-  PromoModelName,
-  UserModelName,
-  BusinessModelName,
+  ProductData.name,
+  PromoData.name,
+  UserData.name,
+  BusinessData.name,
 ];
-
-export const ModelName = "Image";
-
-export default {
+const model = {
   url: {
     type: String,
     required: true,
@@ -39,7 +36,11 @@ export default {
   },
   state: {
     type: Schema.Types.ObjectId,
-    ref: StateModelName,
+    ref: StateData.name,
     required: true,
   },
 };
+
+const name = "Image";
+
+export default { model, name };

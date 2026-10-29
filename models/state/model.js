@@ -1,8 +1,6 @@
-const StatesHandlers = ["users", "business", "promos", "products", "cart"];
+const StatesHandlers = ["User", "Business", "Promo", "Product", "Cart"];
 
-export const ModelName = "State";
-
-export default {
+const model = {
   name: {
     type: String,
     trim: true,
@@ -23,3 +21,6 @@ export default {
     required: true,
   },
 };
+const name = "State";
+
+export default { model, name };

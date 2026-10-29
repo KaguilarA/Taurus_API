@@ -1,10 +1,7 @@
-export const ModelName = "Permission";
-
-export default {
+const model = {
   name: {
     type: String,
     required: true,
-    unique: true,
     trim: true,
     maxlength: [50, "Permission slug cannot exceed 50 characters"],
     match: [
@@ -18,3 +15,6 @@ export default {
     maxlength: 255,
   },
 };
+const name = "Permission";
+
+export default { model, name }

@@ -1,21 +1,22 @@
 import { Schema } from "mongoose";
-import { ModelName as StateModelName } from "./../state/model.js";
-import { ModelName as UserModelName } from "./../user/model.js";
+import StateData from "./../state/model.js";
+import UserData from "./../user/model.js";
 
-export const ModelName = "Cart";
-
-export default {
+const model = {
   name: {
     type: String,
     default: "Cuenta",
   },
   user: {
     type: Schema.Types.ObjectId,
-    ref: UserModelName,
+    ref: UserData.name,
   },
   state: {
     type: Schema.Types.ObjectId,
-    ref: StateModelName,
+    ref: StateData.name,
     required: true,
   },
 };
+const name = "Cart";
+
+export default { model, name };

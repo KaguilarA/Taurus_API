@@ -1,13 +1,10 @@
 import { Schema } from "mongoose";
-import { ModelName as BusinessModelName } from "./../business/model.js";
-import { ModelName as StateModelName } from "./../state/model.js";
-import { ModelName as UserModelName } from "./../user/model.js";
+import BusinessData from "./../business/model.js";
+import StateData from "./../state/model.js";
+import UserData from "./../user/model.js";
 
-const ownerTypes = [BusinessModelName, UserModelName];
-
-export const ModelName = "Email";
-
-export default {
+const ownerTypes = [BusinessData.name, UserData.name];
+const model = {
   email: {
     type: String,
     required: [true, "El correo electrónico es obligatorio."],
@@ -32,7 +29,10 @@ export default {
   },
   state: {
     type: Schema.Types.ObjectId,
-    ref: StateModelName,
+    ref: StateData.name,
     required: true,
   },
 };
+const name = "Email";
+
+export default { model, name };

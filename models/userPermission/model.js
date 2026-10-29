@@ -1,18 +1,19 @@
 import { Schema } from "mongoose";
-import { ModelName as UserModelName } from "./../user/model.js";
-import { ModelName as PermissionModelName } from "./../permission/model.js";
+import UserData from "./../user/model.js";
+import PermissionData from "./../permission/model.js";
 
-export const ModelName = "UserPermission";
-
-export default {
+const model = {
   user: {
     type: Schema.Types.ObjectId,
-    ref: UserModelName,
+    ref: UserData.name,
     required: true,
   },
   permission: {
     type: Schema.Types.ObjectId,
-    ref: PermissionModelName,
+    ref: PermissionData.name,
     required: true,
   },
 };
+const name = "UserPermission";
+
+export default { model, name };

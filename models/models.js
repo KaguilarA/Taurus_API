@@ -1,58 +1,43 @@
 import { OwlModel } from "owl-expressjs-utils";
-import ActionLogData, { ModelName as ActionLogModelName } from "./actionLog/model";
-import BusinessData, { ModelName as BusinessModelName } from "./business/model";
-import CartData, { ModelName as CartModelName } from "./cart/model";
-import CartItemData, { ModelName as CartItemModelName } from "./cartItem/model";
-import EmailData, { ModelName as EmailModelName } from "./email/model";
-import ImageData, { ModelName as ImageModelName } from "./image/model";
-import PermissionData, {
-  ModelName as PermissionModelName,
-} from "./permission/model";
-import PhoneData, { ModelName as PhoneModelName } from "./phone/model";
-import PromoData, { ModelName as PromoModelName } from "./promo/model";
-import PromoProductData, {
-  ModelName as PromoProductModelName,
-} from "./promoProduct/model";
-import ProductData, { ModelName as ProductModelName } from "./product/model";
-import ProductStockData, {
-  ModelName as ProductStockModelName,
-} from "./productStock/model";
-import ProductTypeData, {
-  ModelName as ProductTypeModelName,
-} from "./productType/model";
-import StateData, { ModelName as StateModelName } from "./state/model";
-import UserData, {
-  ModelName as UserModelName,
-  EncryptedFields as UserEncryptedFields,
-} from "./user/model";
-import UserPermissionData, {
-  ModelName as UserPermissionModelName,
-} from "./userPermission/model";
+import ActionLogData from "./actionLog/model";
+import BusinessData from "./business/model";
+import CartData from "./cart/model";
+import CartItemData from "./cartItem/model";
+import EmailData from "./email/model";
+import ImageData from "./image/model";
+import PermissionData from "./permission/model";
+import PhoneData from "./phone/model";
+import PromoData from "./promo/model";
+import PromoProductData from "./promoProduct/model";
+import ProductData from "./product/model";
+import ProductStockData from "./productStock/model";
+import ProductTypeData from "./productType/model";
+import StateData from "./state/model";
+import UserData from "./user/model";
+import UserPermissionData from "./userPermission/model";
 
-export const ActionLogModel = OwlModel(ActionLogModelName, ActionLogData);
-export const BusinessModel = OwlModel(BusinessModelName, BusinessData);
-export const CartModel = OwlModel(CartModelName, CartData);
-export const CartItemModel = OwlModel(CartItemModelName, CartItemData);
-export const EmailModel = OwlModel(EmailModelName, EmailData);
-export const ImageModel = OwlModel(ImageModelName, ImageData);
-export const PermissionModel = OwlModel(PermissionModelName, PermissionData);
-export const PhoneModel = OwlModel(PhoneModelName, PhoneData);
-export const PromoModel = OwlModel(PromoModelName, PromoData);
-export const ProductModel = OwlModel(ProductModelName, ProductData);
+export const ActionLogModel = OwlModel(ActionLogData.name, ActionLogData.model);
+export const BusinessModel = OwlModel(BusinessData.name, BusinessData.model);
+export const CartModel = OwlModel(CartData.name, CartData.model);
+export const CartItemModel = OwlModel(CartItemData.name, CartItemData.model);
+export const EmailModel = OwlModel(EmailData.name, EmailData.model);
+export const ImageModel = OwlModel(ImageData.name, ImageData.model);
+export const PermissionModel = OwlModel(PermissionData.name, PermissionData.model);
+export const PhoneModel = OwlModel(PhoneData.name, PhoneData.model);
+export const PromoModel = OwlModel(PromoData.name, PromoData.model);
+export const ProductModel = OwlModel(ProductData.name, ProductData.model);
 export const PromoProductModel = OwlModel(
-  PromoProductModelName,
-  PromoProductData,
+  PromoProductData.name,
+  PromoProductData.model,
 );
 export const ProductStockModel = OwlModel(
-  ProductStockModelName,
-  ProductStockData,
+  ProductStockData.name,
+  ProductStockData.model,
 );
-export const ProductTypeModel = OwlModel(ProductTypeModelName, ProductTypeData);
-export const StateModel = OwlModel(StateModelName, StateData);
-export const UserModel = OwlModel(UserModelName, UserData, UserEncryptedFields);
+export const ProductTypeModel = OwlModel(ProductTypeData.name, ProductTypeData.model);
+export const StateModel = OwlModel(StateData.name, StateData.model);
+export const UserModel = OwlModel(UserData.name, UserData.model, UserData.encryptedFields);
 export const UserPermissionModel = OwlModel(
-  UserPermissionModelName,
-  UserPermissionData,
+  UserPermissionData.name,
+  UserPermissionData.model,
 );
-
-export { ActionLogModelName, BusinessModelName, CartModelName, CartItemModelName, EmailModelName, ImageModelName, PermissionModelName, PhoneModelName, PromoModelName, PromoProductModelName, ProductModelName, ProductStockModelName, ProductTypeModelName, StateModelName, UserModelName, UserPermissionModelName };

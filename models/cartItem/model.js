@@ -6,9 +6,7 @@ import { ModelName as PriceModelName } from "./../price/model.js";
 
 const ownerTypes = [ProductModelName, PromoModelName];
 
-export const ModelName = "CartItem";
-
-export default {
+const model = {
   cart: {
     type: Schema.Types.ObjectId,
     ref: CartModelName,
@@ -40,3 +38,7 @@ export default {
     },
   },
 };
+
+const name = "CartItem";
+
+export default { model, name };

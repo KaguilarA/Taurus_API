@@ -1,11 +1,7 @@
 import { Schema } from "mongoose";
-import { ModelName as StateModelName } from "./../state/model.js";
+import StateData from "./../state/model.js";
 
-export const ModelName = "User";
-
-export const EncryptedFields = ["password"];
-
-export default {
+const model = {
   name: {
     type: String,
     required: true,
@@ -24,7 +20,13 @@ export default {
   },
   state: {
     type: Schema.Types.ObjectId,
-    ref: StateModelName,
+    ref: StateData.name,
     required: true,
   },
 };
+
+const name = "User";
+
+const encryptedFields = ["password"];
+
+export default { encryptedFields, model, name };

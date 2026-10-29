@@ -1,21 +1,17 @@
 import { Schema } from "mongoose";
-import { ModelName as UserModelName } from "./../user/model.js";
-import { ModelName as PermissionModelName } from "./../permission/model.js";
+import UserData from "./../user/model.js";
+import PermissionData from "./../permission/model.js";
 
-/** Registered Mongoose model name. */
-export const ModelName = "ActionLog";
-
-/** Schema definition for audit records created by action-log middleware. */
-export default {
+const model = {
   user: {
     type: Schema.Types.ObjectId,
-    ref: UserModelName,
+    ref: UserData.name,
     required: true,
     index: true,
   },
   permission: {
     type: Schema.Types.ObjectId,
-    ref: PermissionModelName,
+    ref: PermissionData.name,
     required: true,
     index: true,
   },
@@ -29,3 +25,7 @@ export default {
     default: {},
   },
 };
+
+const name = "ActionLog";
+
+export default { model, name };
