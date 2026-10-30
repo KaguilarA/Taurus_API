@@ -12,7 +12,7 @@ export function createTableController({ origin } = {}) {
     res.json(
       await Promise.all(
         tables.map(async (table) => {
-          const url = `${origin}/?mesa=${table.token}`;
+          const url = `${origin}/cuenta?mesa=${table.token}`;
           return {
             ...table,
             url,

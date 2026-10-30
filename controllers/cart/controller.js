@@ -1,4 +1,10 @@
-import { OwlTransaction } from "owl-expressjs-utils";
+import {
+  orderItems,
+  overallStatus,
+  needsKitchen,
+} from "../../services/order-progress.js";
+import { searchPattern } from "../../services/menu.js";
+import { OwlIsValidId, OwlTransaction } from "owl-expressjs-utils";
 import {
   UserModel,
   CartModel,
@@ -9,9 +15,7 @@ import {
   BusinessModel,
 } from "../../models/models.js";
 import { saleLine } from "../../services/validation.js";
-
 import QRCode from "qrcode";
-
 import { Problem, text, usernameInput } from "../../services/validation.js";
 import {
   reserveItems,
@@ -26,9 +30,10 @@ import { assertProductionPassword } from "../../config/runtime.js";
 import { token } from "../../services/tokens.js";
 const publicOrder = (order) => ({
   _id: order._id,
-  items: order.items.map((i) => ({
+  items: orderItems(order).map((i) => ({
     name: i.name,
     category: i.category,
+    fulfillmentStatus: i.fulfillmentStatus,
     serving: i.serving,
     quantity: i.quantity,
     unitPrice: i.unitPrice,
@@ -40,6 +45,7 @@ const publicOrder = (order) => ({
   notes: order.notes,
   createdAt: order.createdAt,
 });
+
 async function billView(bill) {
   // Keep totals and lines from the same snapshot while another device orders/pays.
   return OwlTransaction(
@@ -63,6 +69,7 @@ async function billView(bill) {
     { readConcern: { level: "snapshot" } },
   );
 }
+
 async function findBill(value) {
   const bill = await CartModel.getOne({ token: value });
   if (!bill)
@@ -71,6 +78,35 @@ async function findBill(value) {
 }
 
 export function createPublicOrderingController({ production, origin } = {}) {
+  const searchAccounts = async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    const q = req.query.q;
+    if (typeof q !== "string" || q.trim().length < 2 || q.length > 80)
+      throw new Problem(
+        "Escribí entre 2 y 80 caracteres para buscar una cuenta.",
+      );
+    const accounts = await CartModel.getByCoincidence(
+      {
+        status: "open",
+        label: { $regex: searchPattern(q.trim()), $options: "i" },
+      },
+      {
+        select: "_id label createdAt",
+        sort: { label: 1, _id: 1 },
+        limit: 8,
+        lean: true,
+      },
+    );
+    res.json(accounts);
+  };
+  const openAccount = async (req, res) => {
+    res.set("Cache-Control", "no-store");
+    if (!OwlIsValidId(req.params.id))
+      throw new Problem("Cuenta no encontrada.", 404);
+    const bill = await CartModel.getOne({ _id: req.params.id, status: "open" });
+    if (!bill) throw new Problem("Esta cuenta ya no está abierta.", 404);
+    res.json(await billView(bill));
+  };
   const join = async (req, res) => {
     const table = await TableModel.getOne({
       token: req.params.token,
@@ -133,6 +169,10 @@ export function createPublicOrderingController({ production, origin } = {}) {
           req.body.items,
           session,
         );
+        const items = lines.map((line) => ({
+          ...line,
+          fulfillmentStatus: line.category === "food" ? "preparing" : "pending",
+        }));
         [order] = await OrderModel.saveMany(
           [
             {
@@ -140,9 +180,9 @@ export function createPublicOrderingController({ production, origin } = {}) {
               label: bill.label,
               billId: bill.id,
               status: "open",
-              orderStatus: "pending",
+              orderStatus: overallStatus(items),
               notes,
-              items: lines,
+              items,
               total,
             },
           ],
@@ -162,7 +202,14 @@ export function createPublicOrderingController({ production, origin } = {}) {
     }
     res.status(201).json(publicOrder(order));
   };
-  return { join, getBill, billActivity, placeOrder };
+  return {
+    join,
+    getBill,
+    billActivity,
+    placeOrder,
+    searchAccounts,
+    openAccount,
+  };
 }
 
 export function createStaffOrderingController({ production, origin } = {}) {
@@ -174,13 +221,16 @@ export function createStaffOrderingController({ production, origin } = {}) {
       { select: "-token -__v", sort: { createdAt: 1 }, lean: true },
     );
     const kitchen = req.account.role === "kitchen";
-    const orders = await OrderModel.getByCoincidence(
+    const foundOrders = await OrderModel.getByCoincidence(
       {
         billId: { $in: bills.map((b) => String(b._id)) },
         ...(kitchen ? { orderStatus: { $ne: "delivered" } } : {}),
       },
       { sort: { createdAt: 1 }, lean: true },
     );
+    const orders = foundOrders
+      .filter((order) => !kitchen || needsKitchen(order))
+      .map((order) => ({ ...order, items: orderItems(order) }));
     res.json({
       bills: kitchen
         ? bills.filter((b) =>
@@ -201,18 +251,47 @@ export function createStaffOrderingController({ production, origin } = {}) {
       !(["admin", "waiter"].includes(role) && next === "delivered")
     )
       throw new Problem("Tu rol no permite esta transición.", 403);
-    const previous = {
-      preparing: "pending",
-      ready: "preparing",
-      delivered: "ready",
-    }[next];
+    const index = req.body.itemIndex;
+    if (index !== undefined && (!Number.isInteger(index) || index < 0))
+      throw new Problem("Línea de pedido inválida.");
     await OwlTransaction(async (session) => {
-      const order = await OrderModel.updateWhere(
-        { _id: req.params.id, status: "open", orderStatus: previous },
+      const order = await OrderModel.getOne(
+        { _id: req.params.id, status: "open" },
+        { session },
+      );
+      if (!order)
+        throw new Problem("El pedido cambió. Actualizá el panel.", 409);
+      const items = orderItems(order);
+      if (index !== undefined && index >= items.length)
+        throw new Problem("Línea de pedido inválida.");
+      let changed = false;
+      for (const [position, item] of items.entries()) {
+        if (index !== undefined && position !== index) continue;
+        const current = item.fulfillmentStatus;
+        const allowed =
+          item.category === "food"
+            ? (next === "preparing" && current === "preparing") ||
+              (next === "ready" && current === "preparing") ||
+              (next === "delivered" && current === "ready")
+            : next === "delivered" && current === "pending";
+        if (!allowed) {
+          if (index !== undefined)
+            throw new Problem("Ese producto no admite esta transición.", 409);
+          continue;
+        }
+        item.fulfillmentStatus = next;
+        changed = true;
+      }
+      if (!changed)
+        throw new Problem("El pedido cambió o no admite esta transición.", 409);
+      const status = overallStatus(items);
+      await OrderModel.updateWhere(
+        { _id: order._id, status: "open" },
         {
           $set: {
-            orderStatus: next,
-            ...(next === "delivered"
+            items,
+            orderStatus: status,
+            ...(status === "delivered"
               ? {
                   deliveredBy: String(req.account._id),
                   deliveredAt: new Date(),
@@ -220,10 +299,8 @@ export function createStaffOrderingController({ production, origin } = {}) {
               : {}),
           },
         },
-        { new: true, session },
+        { session },
       );
-      if (!order)
-        throw new Problem("El pedido cambió. Actualizá el panel.", 409);
       const bill = await CartModel.updateWhere(
         { _id: order.billId, status: "open" },
         { $inc: { revision: 1 } },
@@ -296,7 +373,6 @@ export function createStaffOrderingController({ production, origin } = {}) {
       paymentMethod: bill.paymentMethod,
     });
   };
-
   return { orderActivity, service, updateOrder, pay };
 }
 

@@ -19,7 +19,7 @@ function positiveInteger(value, fallback, maximum) {
     throw new Problem("Paginación del menú inválida.");
   return Number(raw);
 }
-function searchPattern(query) {
+export function searchPattern(query) {
   const accents = {
     a: "[aáàäâ]",
     e: "[eéèëê]",
