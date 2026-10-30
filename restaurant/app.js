@@ -27,6 +27,7 @@ import { assertProductionPassword } from "./config.js";
 import { registerImageUploads } from "./images.js";
 import { registerInitialSetup } from "./setup.js";
 import { businessInput } from "./business.js";
+import { deploymentInfo } from "./deployment.js";
 
 const asyncSession = (session, action) =>
   new Promise((resolve, reject) =>
@@ -89,6 +90,7 @@ export function createApp({
   app.use(sessions);
   registerInitialSetup(app);
   app.get("/api/health", (req, res) => res.json({ ok: true }));
+  app.get("/api/deployment", (req, res) => res.json(deploymentInfo()));
   app.get("/api/ready", async (req, res) => {
     try {
       if (app.locals.draining || mongoose.connection.readyState !== 1)

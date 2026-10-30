@@ -1,6 +1,0 @@
-.env
-.env.*
-!.env.production.example
-node_modules/
-*.log
-.local/

@@ -1,9 +1,0 @@
-.git
-.env
-.env.*
-!.env.production.example
-node_modules
-release
-*.log
-*.test.js
-.local
