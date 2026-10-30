@@ -49,7 +49,13 @@ export function productInput(body) {
     throw new Problem(
       "Comidas y snacks sin inventario; bebidas por unidad o mililitros.",
     );
+  if (
+    body.drinkType &&
+    !["non_alcoholic", "alcoholic"].includes(body.drinkType)
+  )
+    throw new Problem("Subtipo de bebida inv�lido.");
   const result = {
+    drinkType: category === "drink" ? (body.drinkType ?? "") : "",
     name: text(body.name, "Nombre", 150, true),
     description: text(body.description ?? "", "Descripción"),
     image: image(body.image),

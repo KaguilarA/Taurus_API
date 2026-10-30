@@ -1,3 +1,4 @@
+import { registerRecovery, registerProfile } from "./accounts.js";
 import express from "express";
 import helmet from "helmet";
 import { OwlRateLimit } from "owl-expressjs-utils";
@@ -89,6 +90,7 @@ export function createApp({
   app.locals.production = production;
   app.use(sessions);
   registerInitialSetup(app);
+  registerRecovery(app);
   app.get("/api/health", (req, res) => res.json({ ok: true }));
   app.get("/api/deployment", (req, res) => res.json(deploymentInfo()));
   app.get("/api/ready", async (req, res) => {
@@ -207,6 +209,7 @@ export function createApp({
           : [],
     }),
   );
+  registerProfile(app);
   staffOrdering(app, origin);
   registerImageUploads(app, { uploadImage });
   app.put("/api/admin/settings", async (req, res) => {
