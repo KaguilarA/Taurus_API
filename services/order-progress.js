@@ -11,6 +11,7 @@ export function itemStatus(item, orderStatus) {
 
 export function orderItems(order) {
   return order.items.map((item) => ({
+    ...(item._id ? { _id: item._id } : {}),
     productId: item.productId,
     name: item.name,
     category: item.category,
