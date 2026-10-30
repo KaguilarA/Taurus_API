@@ -14,6 +14,7 @@ const output = await mkdtemp(join(root, "dist/backend-"));
 for (const directory of [
   "api",
   "config",
+  "consts",
   "controllers",
   "db",
   "middlewares",

@@ -4,6 +4,8 @@ COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --chown=node:node api ./api
 COPY --chown=node:node config ./config
+COPY --chown=node:node consts ./consts
+COPY --chown=node:node utils ./utils
 COPY --chown=node:node controllers ./controllers
 COPY --chown=node:node db ./db
 COPY --chown=node:node middlewares ./middlewares

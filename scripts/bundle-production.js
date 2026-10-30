@@ -41,6 +41,7 @@ const backend = combined ? output : join(output, "backend");
 for (const directory of [
   "api",
   "config",
+  "consts",
   "controllers",
   "db",
   "middlewares",

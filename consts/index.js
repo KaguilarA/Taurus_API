@@ -1,4 +1,4 @@
-import { loadEnvironment } from "../restaurant/config.js";
+import { loadEnvironment } from "../config/runtime.js";
 loadEnvironment();
 const required = (name) => {
   const value = process.env[name];
