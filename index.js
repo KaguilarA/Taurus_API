@@ -1,6 +1,7 @@
+import { OwlAdminCommand, OwlMongoClose } from "owl-expressjs-utils";
+import { registeredModels } from "./models/models.js";
 import { migrateLegacyCollections } from "./db/migrate-legacy.js";
 import { createServer } from "node:http";
-import mongoose from "mongoose";
 import connectDatabase from "./db/db.js";
 import { createApp } from "./app.js";
 import { seed } from "./db/migrations.js";
@@ -26,14 +27,12 @@ try {
     );
   if (process.env.LOCAL_MONGO_AUTOSTART === "true") await startLocalMongo();
   await connectDatabase(config);
-  const hello = await mongoose.connection.db.admin().command({ hello: 1 });
+  const hello = await OwlAdminCommand({ hello: 1 });
   if (!hello.setName && hello.msg !== "isdbgrid")
     throw new ConfigurationError(
       "MongoDB debe ser replica set o Atlas para transacciones y sockets.",
     );
-  await Promise.all(
-    Object.values(mongoose.models).map((model) => model.init()),
-  );
+  await Promise.all(registeredModels.map((model) => model.initialize()));
   await migrateLegacyCollections();
   await seed();
   if (config.production) await assertProductionAccounts();
@@ -66,7 +65,7 @@ try {
       const timeout = setTimeout(() => process.exit(1), 10000);
       timeout.unref();
       await sockets.close();
-      await mongoose.disconnect();
+      await OwlMongoClose();
       if (replica) await replica.stop();
       clearTimeout(timeout);
       process.exit(0);
@@ -78,7 +77,7 @@ try {
       : `No se pudo iniciar la API (${error.name}). Revisá el entorno y la conexión con MongoDB.`,
   );
   if (sockets) await sockets.close().catch(() => {});
-  await mongoose.disconnect();
+  await OwlMongoClose();
   if (replica) await replica.stop();
   process.exitCode = 1;
 }

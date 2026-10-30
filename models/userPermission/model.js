@@ -1,15 +1,15 @@
-import { Schema } from "mongoose";
+import { OwlTypes } from "owl-expressjs-utils";
 import UserData from "../user/model.js";
 import PermissionData from "../permission/model.js";
 
 const model = {
   user: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     ref: UserData.name,
     required: true,
   },
   permission: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     ref: PermissionData.name,
     required: true,
   },

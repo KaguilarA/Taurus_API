@@ -1,4 +1,4 @@
-import { Schema } from "mongoose";
+import { OwlTypes } from "owl-expressjs-utils";
 import { ModelName as StateModelName } from "../state/model.js";
 
 export const ModelName = "Product";
@@ -12,7 +12,13 @@ const model = {
       enum: ["food", "drink", "snack"],
       required: true,
     },
-    drinkType: { type: String, enum: ["non_alcoholic", "alcoholic", ""] },
+    drinkType: {
+      type: String,
+      enum: ["non_alcoholic", "alcoholic", ""],
+      required() {
+        return this.category === "drink";
+      },
+    },
     inventory: { type: String, enum: ["none", "unit", "ml"], required: true },
     price: { type: Number, min: 0, required: true },
     prices: { large: Number, small: Number, shot: Number },
@@ -35,7 +41,7 @@ const model = {
     maxlength: [500, "Product description cannot exceed 500 characters"],
   },
   state: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     ref: StateModelName,
     required() {
       return !this.category;

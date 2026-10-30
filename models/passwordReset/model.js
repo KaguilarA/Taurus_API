@@ -1,7 +1,7 @@
-import { Schema } from "mongoose";
+import { OwlTypes } from "owl-expressjs-utils";
 const model = {
   _id: String,
-  accountId: Schema.Types.ObjectId,
+  accountId: OwlTypes.ObjectId,
   accountVersion: { type: Number, default: 0 },
   state: {
     type: String,

@@ -1,11 +1,14 @@
-import {EmailModel} from '../../models/models.js';
+import { OwlTransaction } from "owl-expressjs-utils";
+import {
+  EmailModel,
+  UserModel,
+  PasswordResetModel,
+} from "../../models/models.js";
+
 import { randomUUID } from "node:crypto";
 import { usernameInput } from "../../services/validation.js";
 
-import { Accounts } from "../../models/models.js";
 import { Problem, text } from "../../services/validation.js";
-import mongoose from "mongoose";
-
 import { assertProductionPassword } from "../../config/runtime.js";
 
 const asyncSession = (session, action) =>
@@ -16,7 +19,7 @@ const asyncSession = (session, action) =>
 export function createAuthController({ origin, production } = {}) {
   const status = async (req, res) => {
     const account = req.session.userId
-      ? await Accounts.getOne({ _id: req.session.userId })
+      ? await UserModel.getOne({ _id: req.session.userId })
       : null;
     const authenticated =
       !!account &&
@@ -40,14 +43,17 @@ export function createAuthController({ origin, production } = {}) {
           }
         : { email: text(req.body.email, "Usuario", 254, true).toLowerCase() };
     const password = text(req.body.password, "Contraseña", 200, true);
-    let account = await Accounts.getOne(lookup);
+    let account = await UserModel.getOne(lookup);
     if (!account && lookup.email) {
-      const email = await EmailModel.getOne({email:lookup.email,ownerType:"User"});
-      if (email) account = await Accounts.getById(email.owner);
+      const email = await EmailModel.getOne({
+        email: lookup.email,
+        ownerType: "User",
+      });
+      if (email) account = await UserModel.getById(email.owner);
     }
     if (
       !account ||
-      !(await Accounts.compareHash(String(account._id), "password", password))
+      !(await UserModel.compareHash(String(account._id), "password", password))
     )
       throw new Problem("Credenciales inválidas.", 401);
     if (production) assertProductionPassword(password);
@@ -65,8 +71,6 @@ export function createAuthController({ origin, production } = {}) {
   return { status, logIn, logout };
 }
 
-const Account = mongoose.model("User");
-const Reset = mongoose.model("PasswordReset");
 const saveSession = (session) =>
   new Promise((resolve, reject) =>
     session.save((e) => (e ? reject(e) : resolve())),
@@ -82,14 +86,15 @@ function passwordInput(body) {
 export function createRecoveryController({ production, origin } = {}) {
   const requestReset = async (req, res) => {
     const username = usernameInput(req.body.username);
-    const account = await Account.findOne({ username }).select(
-      "_id sessionVersion",
+    const account = await UserModel.getOne(
+      { username },
+      { select: "_id sessionVersion" },
     );
     if (req.session.passwordReset)
-      await Reset.deleteOne({ _id: req.session.passwordReset });
+      await PasswordResetModel.deleteMany({ _id: req.session.passwordReset });
     const id = randomUUID();
     // Unknown usernames receive the same browser-visible state; only real accounts reach approval.
-    await Reset.create({
+    await PasswordResetModel.save({
       _id: id,
       accountId: account?._id,
       accountVersion: account?.sessionVersion ?? 0,
@@ -101,7 +106,7 @@ export function createRecoveryController({ production, origin } = {}) {
   };
   const resetStatus = async (req, res) => {
     const reset = req.session.passwordReset
-      ? await Reset.findOne({
+      ? await PasswordResetModel.getOne({
           _id: req.session.passwordReset,
           expiresAt: { $gt: new Date() },
         })
@@ -110,8 +115,8 @@ export function createRecoveryController({ production, origin } = {}) {
   };
   const completeReset = async (req, res) => {
     const password = passwordInput(req.body);
-    await mongoose.connection.transaction(async (session) => {
-      const reset = await Reset.findOneAndUpdate(
+    await OwlTransaction(async (session) => {
+      const reset = await PasswordResetModel.updateWhere(
         {
           _id: req.session.passwordReset ?? "",
           state: "approved",
@@ -122,7 +127,7 @@ export function createRecoveryController({ production, origin } = {}) {
       );
       if (!reset?.accountId)
         throw new Problem("La solicitud no está aprobada o ya venció.", 403);
-      const account = await Account.findOneAndUpdate(
+      const account = await UserModel.updateWhere(
         { _id: reset.accountId, sessionVersion: reset.accountVersion },
         { $set: { password }, $inc: { sessionVersion: 1 } },
         { session, runValidators: true },

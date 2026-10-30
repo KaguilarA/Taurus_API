@@ -1,4 +1,4 @@
-import { Schema } from "mongoose";
+import { OwlTypes } from "owl-expressjs-utils";
 import { ModelName as CartModelName } from "../cart/model.js";
 import { ModelName as ProductModelName } from "../product/model.js";
 import { ModelName as PromoModelName } from "../promo/model.js";
@@ -8,7 +8,7 @@ const ownerTypes = [ProductModelName, PromoModelName];
 
 const model = {
   cart: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     ref: CartModelName,
     required: true,
   },
@@ -18,13 +18,13 @@ const model = {
     enum: ownerTypes,
   },
   owner: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     required: true,
     refPath: "ownerType",
     index: true,
   },
   unitPrice: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     ref: PriceModelName,
     required: true,
   },

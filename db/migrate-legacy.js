@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import { OwlDatabase, OwlTransaction } from "owl-expressjs-utils";
 import { ConfigurationError } from "../config/runtime.js";
 // IDs and stored hashes are copied verbatim. Source collections are retained as a backup.
 export const legacyCollections = [
@@ -16,7 +16,7 @@ export const legacyCollections = [
 export async function migrateLegacyCollections({
   maintenance = process.env.MAINTENANCE_MODE === "true",
 } = {}) {
-  const db = mongoose.connection.db,
+  const db = OwlDatabase(),
     marker = db.collection("applicationmigrations");
   const id = "canonical-models-v1";
   if ((await marker.findOne({ _id: id }))?.done) return;
@@ -35,7 +35,7 @@ export async function migrateLegacyCollections({
     { $setOnInsert: { done: false, revision: 0 } },
     { upsert: true },
   );
-  await mongoose.connection.transaction(async (session) => {
+  await OwlTransaction(async (session) => {
     const lock = await marker.findOneAndUpdate(
       { _id: id },
       { $inc: { revision: 1 } },
@@ -54,7 +54,14 @@ export async function migrateLegacyCollections({
           throw new ConfigurationError(
             `Migración detenida por conflicto entre ${source} y ${target}. No se sobrescribieron datos.`,
           );
-        await db.collection(target).insertOne(source === "restaurantaccounts" && !document.role ? {...document, role:"admin"} : document, { session });
+        await db
+          .collection(target)
+          .insertOne(
+            source === "restaurantaccounts" && !document.role
+              ? { ...document, role: "admin" }
+              : document,
+            { session },
+          );
       }
     }
     await marker.updateOne(

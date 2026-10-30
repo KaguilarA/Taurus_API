@@ -1,10 +1,9 @@
+import { OwlMongoClient } from "owl-expressjs-utils";
 import { spawn } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { setTimeout } from "node:timers/promises";
-import mongoose from "mongoose";
-
 const root = fileURLToPath(new URL("../", import.meta.url));
 function configuration() {
   if (process.env.NODE_ENV === "production")
@@ -31,7 +30,7 @@ function configuration() {
   return { port, replica, executable, directory };
 }
 async function connect(config) {
-  const client = new mongoose.mongo.MongoClient(
+  const client = new OwlMongoClient(
     `mongodb://127.0.0.1:${config.port}/admin?directConnection=true`,
     { serverSelectionTimeoutMS: 700 },
   );

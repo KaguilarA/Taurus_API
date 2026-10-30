@@ -6,7 +6,7 @@ import actionLogMiddleware from "../actionLog/actionLog.js";
  * @param {string} action - Permission/action name recorded in the audit entry.
  * @returns {import('express').RequestHandler} Configured action-log middleware.
  */
-export default(dependencies, action) =>
+export default (dependencies, action) =>
   actionLogMiddleware({
     ...dependencies,
     action,

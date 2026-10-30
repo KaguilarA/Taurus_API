@@ -1,6 +1,7 @@
+import { OwlDatabase } from "owl-expressjs-utils";
+import { UserModel, CartModel } from "../models/models.js";
 import { Server } from "socket.io";
-import mongoose from "mongoose";
-import { Accounts, Bill } from "../models/models.js";
+
 import { billActivity, hasStaffOrders } from "./order-activity.js";
 
 export const ORDER_SOCKET_PATH = "/api/socket.io";
@@ -29,11 +30,9 @@ export function attachOrderSockets(
     if (changes || closing) return;
     if (!starting)
       starting = (async () => {
-        const hello = await mongoose.connection.db
-          .admin()
-          .command({ hello: 1 });
+        const hello = await OwlDatabase().admin().command({ hello: 1 });
         if (closing) return;
-        const stream = Bill.watch([], {
+        const stream = CartModel.watch([], {
           startAtOperationTime: hello.operationTime,
         });
         changes = stream;
@@ -76,7 +75,7 @@ export function attachOrderSockets(
       });
     const session = socket.request.session;
     const account = session?.userId
-      ? await Accounts.getOne({ _id: session.userId })
+      ? await UserModel.getOne({ _id: session.userId })
       : null;
     if (
       !account ||

@@ -1,7 +1,6 @@
 import { OwlController } from "owl-expressjs-utils";
 import { EventModel } from "../../models/models.js";
 
-import { Event } from "../../models/models.js";
 import { Problem, text, image } from "../../services/validation.js";
 
 function eventInput(body) {

@@ -1,4 +1,4 @@
-import { Schema } from "mongoose";
+import { OwlTypes } from "owl-expressjs-utils";
 import StateData from "../state/model.js";
 import UserData from "../user/model.js";
 
@@ -21,11 +21,11 @@ const model = {
     default: "Cuenta",
   },
   user: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     ref: UserData.name,
   },
   state: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     ref: StateData.name,
     required() {
       return !this.token;
@@ -34,6 +34,16 @@ const model = {
 };
 const name = "Cart";
 
-export default { model, name };
+const indexes = [
+  {
+    fields: { tableId: 1 },
+    options: {
+      unique: true,
+      partialFilterExpression: { status: "open", tableId: { $type: "string" } },
+    },
+  },
+];
+
+export default { model, name, indexes };
 
 export const ModelName = name;

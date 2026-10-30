@@ -11,15 +11,17 @@ export default class extends BaseController {
     try {
       const { userId, permissionId } = req.params;
       const [user, permission] = await Promise.all([
-        this.userModel.findById(userId),
-        this.permissionModel.findById(permissionId),
+        this.userModel.getById(userId),
+        this.permissionModel.getById(permissionId),
       ]);
 
       if (!user || !permission) {
-        return res.status(404).json({ message: "User or permission not found" });
+        return res
+          .status(404)
+          .json({ message: "User or permission not found" });
       }
 
-      const assignment = await this.model.findOneAndUpdate(
+      const assignment = await this.model.updateWhere(
         { user: userId, permission: permissionId },
         {
           $set: {
@@ -28,7 +30,7 @@ export default class extends BaseController {
           },
           $unset: { revokedBy: 1, revokedAt: 1 },
         },
-        { new: true, upsert: true, runValidators: true }
+        { new: true, upsert: true, runValidators: true },
       );
 
       req.auditAction = "PERMISSION_GRANTED";
@@ -45,10 +47,14 @@ export default class extends BaseController {
   revoke = async (req, res) => {
     try {
       const { userId, permissionId } = req.params;
-      const assignment = await this.model.findOneAndUpdate(
-        { user: userId, permission: permissionId, revokedAt: { $exists: false } },
+      const assignment = await this.model.updateWhere(
+        {
+          user: userId,
+          permission: permissionId,
+          revokedAt: { $exists: false },
+        },
         { $set: { revokedBy: req.user._id, revokedAt: new Date() } },
-        { new: true }
+        { new: true },
       );
 
       if (!assignment) {
@@ -68,10 +74,10 @@ export default class extends BaseController {
 
   list = async (req, res) => {
     try {
-      const assignments = await this.model
-        .find({ user: req.params.userId, revokedAt: { $exists: false } })
-        .populate("permission", "name description")
-        .lean();
+      const assignments = await this.model.getByCoincidence(
+        { user: req.params.userId, revokedAt: { $exists: false } },
+        { populate: "permission", lean: true },
+      );
       res.status(200).json(assignments);
     } catch (err) {
       res.status(500).json({ message: err.message });

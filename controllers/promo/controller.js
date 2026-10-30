@@ -1,7 +1,6 @@
 import { OwlController } from "owl-expressjs-utils";
 import { PromoModel } from "../../models/models.js";
 
-import { Promotion } from "../../models/models.js";
 import { Problem, text, image } from "../../services/validation.js";
 
 function promotionInput(body) {

@@ -1,4 +1,4 @@
-import { Schema } from "mongoose";
+import { OwlTypes } from "owl-expressjs-utils";
 import BusinessData from "../business/model.js";
 import PromoData from "../promo/model.js";
 import ProductData from "../product/model.js";
@@ -29,13 +29,13 @@ const model = {
     enum: ownerTypes,
   },
   owner: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     required: true,
     refPath: "ownerType",
     index: true,
   },
   state: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     ref: StateData.name,
     required: true,
   },
