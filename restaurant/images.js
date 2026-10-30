@@ -3,10 +3,15 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { OwlRateLimit } from "owl-expressjs-utils";
 import { Problem } from "./domain.js";
+import {
+  MAX_IMAGE_BYTES,
+  imageMimeTypes as mimeTypes,
+  validateImage,
+} from "./image-validation.js";
+import { optimizeTinyPng } from "./image-optimization.js";
 
-export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+export { MAX_IMAGE_BYTES, validateImage } from "./image-validation.js";
 const purposes = new Set(["product", "promotion", "event", "branding"]);
-const mimeTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 export function cloudinaryOptions(env = process.env) {
   let cloud_name = env.CLOUDINARY_CLOUD_NAME;
@@ -41,26 +46,12 @@ export function cloudinaryOptions(env = process.env) {
   return { cloud_name, api_key, api_secret, folder, secure: true };
 }
 
-export function validateImage(file) {
-  if (!file) throw new Problem("Seleccioná una imagen.");
-  const b = file.buffer;
-  const detected =
-    b.length >= 12 &&
-    b.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-      ? "image/png"
-      : b.length >= 3 && b[0] === 255 && b[1] === 216 && b[2] === 255
-        ? "image/jpeg"
-        : b.length >= 12 &&
-            b.toString("ascii", 0, 4) === "RIFF" &&
-            b.toString("ascii", 8, 12) === "WEBP"
-          ? "image/webp"
-          : "";
-  if (!detected || detected !== file.mimetype)
-    throw new Problem("El archivo debe ser una imagen JPG, PNG o WebP válida.");
-}
-
-export async function uploadCloudinaryImage(file, purpose) {
-  const options = cloudinaryOptions();
+export async function uploadCloudinaryImage(
+  file,
+  purpose,
+  { env = process.env } = {},
+) {
+  const options = cloudinaryOptions(env);
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(
       {
@@ -92,9 +83,33 @@ export async function uploadCloudinaryImage(file, purpose) {
   });
 }
 
+export async function uploadOptimizedImage(
+  file,
+  purpose,
+  {
+    env = process.env,
+    optimizeImage = optimizeTinyPng,
+    uploadImage = uploadCloudinaryImage,
+  } = {},
+) {
+  // Check destination before spending a TinyPNG compression on an impossible upload.
+  cloudinaryOptions(env);
+  const optimized = await optimizeImage(file, { env });
+  validateImage(optimized);
+  const result = await uploadImage(optimized, purpose, { env });
+  return {
+    ...result,
+    optimization: {
+      originalBytes: file.buffer.length,
+      optimizedBytes: optimized.buffer.length,
+      savedBytes: file.buffer.length - optimized.buffer.length,
+    },
+  };
+}
+
 export function registerImageUploads(
   app,
-  { uploadImage = uploadCloudinaryImage } = {},
+  { uploadImage = uploadOptimizedImage } = {},
 ) {
   const multipart = multer({
     storage: multer.memoryStorage(),

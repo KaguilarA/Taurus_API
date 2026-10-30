@@ -148,3 +148,20 @@ Actions publica un artefacto validado en la rama `production`, sin secretos ni d
 Configurar la variable de repositorio `DEPLOYMENT_URL` con el origen HTTPS publico. El workflow espera a que el proveedor sirva la misma revision y a que `/api/ready` responda correctamente. Un timeout marca el workflow como fallido; no se presenta una publicacion pendiente como exitosa.
 
 Render debe observar `production`, ejecutar `npm ci --omit=dev --ignore-scripts`, iniciar con `npm start` y mantener `/api/ready` como healthcheck. Las conexiones y credenciales siguen en Render Environment. El endpoint publico `/api/deployment` informa solo la revision de codigo publicada.
+
+## Optimizacion TinyPNG y almacenamiento Cloudinary
+
+El flujo de imagenes es navegador -> API -> TinyPNG -> Cloudinary. El backend valida formato y firma, envia el buffer a TinyPNG y descarga el resultado por HTTPS autenticado. Si el archivo ya pesa menos, conserva la version mas liviana. Solo despues realiza la subida firmada a Cloudinary. JPG, PNG y WebP mantienen su formato y transparencia; no se convierten ni se redimensionan. La respuesta incluye los bytes originales, finales y ahorrados.
+
+Definir `TINIFY_API_URL` y `TINIFY_API_KEY`, ademas de `CLOUDINARY_URL` (o sus tres campos separados) y `CLOUDINARY_FOLDER`, exclusivamente en el entorno del backend. No copiar secretos a GitHub, Pages ni Angular. El frontend solo envia multipart a la API. Sin configuracion, ante un cupo agotado o error de TinyPNG no se sube una version sin optimizar y se conserva la imagen anterior. No hay reintentos automaticos que consuman compresiones extra.
+
+Esta optimizacion se aplica a las nuevas subidas desde el panel; las URLs externas ingresadas manualmente no pasan por esta subida. Las imagenes ya guardadas no se modifican retroactivamente. Referencia: https://tinypng.com/developers/reference/http y https://cloudinary.com/documentation/node_image_and_video_upload.
+
+
+### Perfil y recuperación de acceso
+
+Todos los roles pueden editar su nombre y username en **Mi perfil**. El servidor deriva la cuenta de la sesión e ignora identificadores, roles y contraseñas enviados al editar el perfil. Cambiar la contraseña exige la contraseña actual y una nueva clave de al menos 12 caracteres, y revoca las demás sesiones.
+
+En el login, **Olvidé mi contraseña** crea una solicitud temporal de 30 minutos asociada a ese navegador mediante la sesión HttpOnly. Un administrador consulta **Equipo y roles → Recuperación de contraseñas**, verifica la identidad de la persona y aprueba o rechaza. La persona consulta la aprobación en el mismo navegador y elige su nueva clave. La aprobación es de un solo uso y se consume dentro de la misma transacción que cambia la contraseña. No se envían claves temporales ni se habilitan enlaces públicos de cambio de contraseña. Las solicitudes de usuarios inexistentes reciben la misma respuesta pública. Si el único administrador perdió el acceso, el operador conserva el comando `account:password`; la recuperación pública no evita la aprobación.
+
+Las bebidas admiten `drinkType: alcoholic | non_alcoholic`. Los productos existentes sin clasificación se conservan sin adivinar su contenido de alcohol y pueden clasificarse al editarlos.

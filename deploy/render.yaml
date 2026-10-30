@@ -30,3 +30,7 @@ services:
         sync: false
       - key: CLOUDINARY_FOLDER
         sync: false
+      - key: TINIFY_API_KEY
+        sync: false
+      - key: TINIFY_API_URL
+        sync: false
