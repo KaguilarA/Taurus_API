@@ -88,6 +88,11 @@ export function createApp({
   app.locals.sessionMiddleware = sessions;
   app.locals.origin = origin;
   app.locals.production = production;
+  app.use('/api', (req,res,next) => {
+    if(process.env.MAINTENANCE_MODE !== 'true' || ['/health','/ready','/deployment'].includes(req.path)) return next();
+    res.set('Retry-After','60');
+    return res.status(503).json({error:'Estamos actualizando el sistema. Intentá de nuevo en unos minutos.'});
+  });
   app.use(sessions);
   registerInitialSetup(app);
   registerRecovery(app);
