@@ -1,11 +1,11 @@
 {
   "name": "Taurus-API",
   "version": "1.0.0",
-  "main": "restaurant/server.js",
+  "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node restaurant/server.js",
-    "account:password": "node restaurant/account-password.js"
+    "start": "node index.js",
+    "account:password": "node scripts/account-password.js"
   },
   "engines": {
     "node": ">=24.0.0",
