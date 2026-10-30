@@ -32,7 +32,7 @@ for (const file of ["app.js", "index.js"])
 await mkdir(join(output, "scripts"));
 for (const file of ["account-password.js", "healthcheck.js"])
   await cp(join(root, "scripts", file), join(output, "scripts", file));
-for (const file of ["package.json", "package-lock.json"])
+for (const file of ["package.json", "package-lock.json", ".npmrc"])
   await cp(join(root, file), join(output, file));
 const pkg = JSON.parse(await readFile(join(output, "package.json"), "utf8"));
 pkg.scripts = {

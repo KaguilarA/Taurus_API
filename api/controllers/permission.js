@@ -1,7 +1,6 @@
 import BaseController from "../../utils/baseController.js";
 
 export default class extends BaseController {
-
   /**
    * Get all permissions
    * @param {Object} req The request object
@@ -10,7 +9,7 @@ export default class extends BaseController {
    */
   getAll = async (req, res) => {
     try {
-      const models = await this.model.find({});
+      const models = await this.model.getByCoincidence({});
       res.status(200).json(models);
     } catch (err) {
       res.status(404).json({ message: err.message });

@@ -1,6 +1,7 @@
+import { OwlMongoConnect, OwlMongoClose } from "owl-expressjs-utils";
+import { registeredModels } from "../../models/models.js";
 import { loadEnvironment } from "../../config/runtime.js";
-import mongoose from "mongoose";
-import { OwlMongoConnect } from "owl-expressjs-utils";
+
 import { startLocalMongo } from "../../db/local-mongo.js";
 import { seed } from "./seed.js";
 import { seedPreviewData } from "./preview-data.js";
@@ -16,11 +17,9 @@ await OwlMongoConnect(
 );
 try {
   await seed({});
-  await Promise.all(
-    Object.values(mongoose.models).map((model) => model.init()),
-  );
+  await Promise.all(registeredModels.map((model) => model.initialize()));
   console.log(await seedPreviewData({ resetAdminPassword: true }));
   console.log("Datos guardados. Usuario: admin · Contraseña: 12345678");
 } finally {
-  await mongoose.disconnect();
+  await OwlMongoClose();
 }

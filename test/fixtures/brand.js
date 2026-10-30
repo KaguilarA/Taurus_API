@@ -1,8 +1,8 @@
-import { Settings, Event } from "../../models/models.js";
+import { BusinessModel, EventModel } from "../../models/models.js";
 
 export async function seedFelosBrand({ includeSamples = true } = {}) {
-  const settings = await Settings.getOne({ key: "main" });
-  await Settings.update(String(settings._id), {
+  const settings = await BusinessModel.getOne({ key: "main" });
+  await BusinessModel.update(String(settings._id), {
     name: "FELOS BAR",
     tagline: "Aquí se sirven buenos momentos.",
     description:
@@ -35,7 +35,7 @@ export async function seedFelosBrand({ includeSamples = true } = {}) {
       "Reuní a tu equipo, pedí algo rico y disfrutá cada jugada.",
     ],
   ]) {
-    await Event.updateOne(
+    await EventModel.updateWhere(
       { sampleKey },
       {
         $setOnInsert: {

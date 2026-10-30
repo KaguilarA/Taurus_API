@@ -1,6 +1,7 @@
+import { OwlMongoConnect, OwlMongoClose } from "owl-expressjs-utils";
+import { registeredModels } from "../../models/models.js";
 import { loadEnvironment } from "../../config/runtime.js";
-import mongoose from "mongoose";
-import { OwlMongoConnect } from "owl-expressjs-utils";
+
 import { seed } from "./seed.js";
 import { seedFelosBrand } from "./brand.js";
 loadEnvironment();
@@ -11,9 +12,7 @@ await OwlMongoConnect(
 );
 try {
   await seed({});
-  await Promise.all(
-    Object.values(mongoose.models).map((model) => model.init()),
-  );
+  await Promise.all(registeredModels.map((model) => model.initialize()));
   await seedFelosBrand({
     includeSamples: process.env.NODE_ENV !== "production",
   });
@@ -21,5 +20,5 @@ try {
     "Identidad Felos Bar guardada. Los eventos de muestra se cargan solamente en desarrollo.",
   );
 } finally {
-  await mongoose.disconnect();
+  await OwlMongoClose();
 }

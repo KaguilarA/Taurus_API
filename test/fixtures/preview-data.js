@@ -1,12 +1,18 @@
-import mongoose from "mongoose";
+import { OwlTransaction } from "owl-expressjs-utils";
+import {
+  UserModel,
+  ProductModel,
+  StockMovementModel,
+  TableModel,
+} from "../../models/models.js";
 import { randomBytes } from "node:crypto";
-import { Accounts, Product, Movement, Table } from "../../models/models.js";
 
 // Prices and opening quantities are editable examples, not market price claims.
 export const previewProducts = [
   {
     name: "Imperial",
     category: "drink",
+    drinkType: "alcoholic",
     price: 2000,
     description: "Cerveza Imperial bien fría.",
     image: "/images/beer.svg",
@@ -14,6 +20,7 @@ export const previewProducts = [
   {
     name: "Pilsen",
     category: "drink",
+    drinkType: "alcoholic",
     price: 2000,
     description: "Cerveza Pilsen bien fría.",
     image: "/images/beer.svg",
@@ -21,6 +28,7 @@ export const previewProducts = [
   {
     name: "Corona",
     category: "drink",
+    drinkType: "alcoholic",
     price: 2800,
     description: "Cerveza Corona, servida fría con limón.",
     image: "/images/beer.svg",
@@ -28,6 +36,7 @@ export const previewProducts = [
   {
     name: "Silver",
     category: "drink",
+    drinkType: "alcoholic",
     price: 2000,
     description: "Cerveza Imperial Silver bien fría.",
     image: "/images/beer.svg",
@@ -35,6 +44,7 @@ export const previewProducts = [
   {
     name: "Coca-Cola",
     category: "drink",
+    drinkType: "non_alcoholic",
     price: 1500,
     description: "Refresco Coca-Cola individual, bien frío.",
     image: "/images/cola.svg",
@@ -88,9 +98,9 @@ export const previewProducts = [
 ];
 
 export async function seedPreviewData({ resetAdminPassword = false } = {}) {
-  let account = await Accounts.getOne({ username: "admin" });
+  let account = await UserModel.getOne({ username: "admin" });
   if (!account)
-    account = await Accounts.save({
+    account = await UserModel.save({
       username: "admin",
       email: "admin@accounts.local",
       name: "Administrador",
@@ -98,20 +108,23 @@ export async function seedPreviewData({ resetAdminPassword = false } = {}) {
       password: "12345678",
     });
   else if (resetAdminPassword)
-    await Accounts.update(String(account._id), {
+    await UserModel.update(String(account._id), {
       password: "12345678",
       role: "admin",
     });
   for (const [index, sample] of previewProducts.entries()) {
     const sampleKey = `preview-${index + 1}`;
-    await mongoose.connection.transaction(async (session) => {
+    await OwlTransaction(async (session) => {
       if (
-        await Product.exists({
-          $or: [{ sampleKey }, { name: sample.name }],
-        }).session(session)
+        await ProductModel.exists(
+          {
+            $or: [{ sampleKey }, { name: sample.name }],
+          },
+          { session: session },
+        )
       )
         return;
-      const [product] = await Product.create(
+      const [product] = await ProductModel.saveMany(
         [
           {
             ...sample,
@@ -125,7 +138,7 @@ export async function seedPreviewData({ resetAdminPassword = false } = {}) {
         { session },
       );
       if (product.stock)
-        await Movement.create(
+        await StockMovementModel.saveMany(
           [
             {
               productId: product.id,
@@ -140,15 +153,15 @@ export async function seedPreviewData({ resetAdminPassword = false } = {}) {
         );
     });
   }
-  if (!(await Table.exists({ name: "Mesa 01" })))
-    await Table.create({
+  if (!(await TableModel.exists({ name: "Mesa 01" })))
+    await TableModel.save({
       name: "Mesa 01",
       token: randomBytes(24).toString("hex"),
     });
   return {
     username: "admin",
     products: previewProducts.length,
-    seededProducts: await Product.countDocuments({
+    seededProducts: await ProductModel.countDocuments({
       sampleKey: { $in: previewProducts.map((_, i) => `preview-${i + 1}`) },
     }),
   };

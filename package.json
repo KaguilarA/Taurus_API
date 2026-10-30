@@ -30,9 +30,8 @@
     "cloudinary": "^2.11.0",
     "express": "^5.3.0",
     "helmet": "^8.3.0",
-    "mongoose": "^8.24.7",
     "multer": "^2.5.0",
-    "owl-expressjs-utils": "^1.0.3",
+    "owl-expressjs-utils": "https://codeload.github.com/KaguilarA/owl-expressjs-utils/tar.gz/4b85d6d84a53c59926870c271fe084f2a7004fb3",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.4"
   },
@@ -41,8 +40,5 @@
     "mongodb-memory-server": "^11.3.0",
     "socket.io-client": "^4.8.4",
     "supertest": "^7.3.1"
-  },
-  "overrides": {
-    "mongoose": "$mongoose"
   }
 }

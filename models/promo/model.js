@@ -1,4 +1,4 @@
-import { Schema } from "mongoose";
+import { OwlTypes } from "owl-expressjs-utils";
 import { ModelName as StateModelName } from "../state/model.js";
 
 export const ModelName = "Promo";
@@ -31,7 +31,7 @@ const model = {
     index: true,
   },
   state: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     ref: StateModelName,
     required() {
       return !this.title;

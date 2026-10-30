@@ -1,6 +1,6 @@
 FROM node:24-bookworm-slim
 WORKDIR /app
-COPY package.json package-lock.json ./
+COPY package.json package-lock.json .npmrc ./
 RUN npm ci --omit=dev --ignore-scripts && npm cache clean --force
 COPY --chown=node:node api ./api
 COPY --chown=node:node config ./config

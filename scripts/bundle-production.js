@@ -62,7 +62,7 @@ for (const file of ["account-password.js", "healthcheck.js"])
     resolve(projectRoot, "scripts", file),
     join(backend, "scripts", file),
   );
-for (const entry of ["package.json", "package-lock.json"])
+for (const entry of ["package.json", "package-lock.json", ".npmrc"])
   await copyFile(resolve(projectRoot, entry), join(backend, entry));
 const runtimePackage = JSON.parse(
   await readFile(join(backend, "package.json"), "utf8"),

@@ -1,12 +1,19 @@
+import { OwlMongoConnect, OwlMongoClose } from "owl-expressjs-utils";
+import {
+  CartModel,
+  ProductModel,
+  OrderModel,
+  StockMovementModel,
+  registeredModels,
+} from "../../models/models.js";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import mongoose from "mongoose";
 import session from "express-session";
 import request from "supertest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { createApp } from "../../app.js";
 import { seed } from "../fixtures/seed.js";
-import { Bill, Product, Sale, Movement } from "../../models/models.js";
+
 import { seedPreviewData, previewProducts } from "../fixtures/preview-data.js";
 import { seedFelosBrand } from "../fixtures/brand.js";
 
@@ -14,9 +21,9 @@ let replica, app, admin, kitchen, waiter, snack, beer, table, guest, billId;
 const password = "Test-password-2026!";
 before(async () => {
   replica = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  await mongoose.connect(replica.getUri("ordering-tests"));
+  await OwlMongoConnect(replica.getUri("ordering-tests"));
   await seed({ email: "admin@test.local", password, demo: true });
-  await Promise.all(Object.values(mongoose.models).map((m) => m.init()));
+  await Promise.all(registeredModels.map((m) => m.initialize()));
   app = createApp({
     origin: "http://localhost:4200",
     sessionMiddleware: session({
@@ -57,7 +64,7 @@ before(async () => {
     })
     .expect(201);
   snack = created.body;
-  beer = await Product.findOne({ name: "Cerveza artesanal" });
+  beer = await ProductModel.getOne({ name: "Cerveza artesanal" });
   const location = await admin
     .post("/api/admin/tables")
     .send({ name: "Barra 02" })
@@ -65,7 +72,7 @@ before(async () => {
   table = location.body;
 });
 after(async () => {
-  await mongoose.disconnect();
+  await OwlMongoClose();
   if (replica) await replica.stop();
 });
 
@@ -116,10 +123,10 @@ test("QR identifica posición y escaneos simultáneos comparten una sola cuenta"
   assert.equal(guest.label, "Barra 02");
   assert.equal(guest.balance, 0);
   assert.equal(
-    await Bill.countDocuments({ tableId: table._id, status: "open" }),
+    await CartModel.countDocuments({ tableId: table._id, status: "open" }),
     1,
   );
-  billId = (await Bill.findOne({ token: guest.token })).id;
+  billId = (await CartModel.getOne({ token: guest.token })).id;
   await request(app).get(`/api/public/bills/${table._id}`).expect(404);
 });
 
@@ -147,7 +154,7 @@ test("pedido anónimo mixto usa precios del servidor y reintentos reservan inven
   assert.equal(results[0].body.orderStatus, "pending");
   assert.equal(results[0].body.requestId, undefined);
   assert.equal(results[0].body.items[0].consumed, undefined);
-  assert.equal((await Product.findById(beer.id)).stock, stock - 1);
+  assert.equal((await ProductModel.getById(beer.id)).stock, stock - 1);
   const account = await request(app)
     .get(`/api/public/bills/${guest.token}`)
     .expect(200);
@@ -158,7 +165,7 @@ test("pedido anónimo mixto usa precios del servidor y reintentos reservan inven
 });
 
 test("pedido sin stock revierte cuenta, líneas y movimientos", async () => {
-  const movements = await Movement.countDocuments();
+  const movements = await StockMovementModel.countDocuments();
   await request(app)
     .post(`/api/public/bills/${guest.token}/orders`)
     .send({
@@ -169,13 +176,13 @@ test("pedido sin stock revierte cuenta, líneas y movimientos", async () => {
       ],
     })
     .expect(409);
-  assert.equal((await Bill.findById(billId)).total, 5800);
-  assert.equal(await Movement.countDocuments(), movements);
-  assert.equal(await Sale.countDocuments({ billId }), 1);
+  assert.equal((await CartModel.getById(billId)).total, 5800);
+  assert.equal(await StockMovementModel.countDocuments(), movements);
+  assert.equal(await OrderModel.countDocuments({ billId }), 1);
 });
 
 test("cocina prepara, mesero entrega y no se puede cobrar antes de entregar", async () => {
-  const order = await Sale.findOne({ billId });
+  const order = await OrderModel.getOne({ billId });
   await waiter
     .post(`/api/admin/bills/${billId}/pay`)
     .send({ method: "sinpe" })
@@ -208,7 +215,7 @@ test("cocina prepara, mesero entrega y no se puede cobrar antes de entregar", as
     .patch(`/api/admin/orders/${order.id}`)
     .send({ status: "delivered" })
     .expect(200);
-  const saved = await Sale.findById(order.id);
+  const saved = await OrderModel.getById(order.id);
   assert.ok(saved.deliveredAt);
   assert.ok(saved.deliveredBy);
 });
@@ -227,7 +234,7 @@ test("cobros simultáneos son idempotentes, registran SIMPE y reportan snacks", 
     ),
   );
   assert.equal(results[0].body._id, results[1].body._id);
-  const saved = await Bill.findById(billId);
+  const saved = await CartModel.getById(billId);
   assert.equal(saved.paymentMethod, "sinpe");
   assert.equal(saved.paymentReference, "REF-123");
   assert.ok(saved.receivedBy);
@@ -244,7 +251,7 @@ test("cobros simultáneos son idempotentes, registran SIMPE y reportan snacks", 
     report.body.ranking.find((row) => row._id.category === "snack").quantity,
     2,
   );
-  const sale = await Sale.findOne({ billId });
+  const sale = await OrderModel.getOne({ billId });
   await admin
     .post(`/api/admin/sales/${sale.id}/void`)
     .send({ reason: "No alterar cuentas pagadas" })
@@ -315,7 +322,7 @@ test("pedido y pago concurrentes no cierran una cuenta con consumos sin entregar
     .post(`/api/public/tables/${location.body.token}/join`)
     .send({})
     .expect(200);
-  const account = await Bill.findOne({ token: joined.body.token });
+  const account = await CartModel.getOne({ token: joined.body.token });
   const created = await request(app)
     .post(`/api/public/bills/${account.token}/orders`)
     .send({
@@ -341,10 +348,10 @@ test("pedido y pago concurrentes no cierran una cuenta con consumos sin entregar
     (newOrder.status === 201 && payment.status === 409) ||
       (newOrder.status === 409 && payment.status === 200),
   );
-  const saved = await Bill.findById(account.id);
+  const saved = await CartModel.getById(account.id);
   assert.equal(saved.total, newOrder.status === 201 ? 3000 : 1500);
   assert.equal(saved.status, payment.status === 200 ? "paid" : "open");
-  const orders = await Sale.find({ billId: account.id });
+  const orders = await OrderModel.getByCoincidence({ billId: account.id });
   if (saved.status === "paid")
     assert.ok(
       orders.every(
@@ -387,7 +394,7 @@ test("usuario y contraseña permiten entrar sin correo y los datos de prueba son
           item.name === product.name && item.category === product.category,
       ),
     );
-  const imperial = await Product.findOne({ name: "Imperial" });
+  const imperial = await ProductModel.getOne({ name: "Imperial" });
   await viewer
     .post("/api/admin/sales")
     .send({
@@ -396,12 +403,12 @@ test("usuario y contraseña permiten entrar sin correo y los datos de prueba son
       items: [{ productId: imperial.id, quantity: 1 }],
     })
     .expect(201);
-  const count = await Product.countDocuments();
-  const movementCount = await Movement.countDocuments();
+  const count = await ProductModel.countDocuments();
+  const movementCount = await StockMovementModel.countDocuments();
   await seedPreviewData();
-  assert.equal(await Product.countDocuments(), count);
-  assert.equal(await Movement.countDocuments(), movementCount);
-  assert.equal((await Product.findById(imperial.id)).stock, 23);
+  assert.equal(await ProductModel.countDocuments(), count);
+  assert.equal(await StockMovementModel.countDocuments(), movementCount);
+  assert.equal((await ProductModel.getById(imperial.id)).stock, 23);
   const staff = await viewer
     .post("/api/admin/accounts")
     .send({
@@ -500,7 +507,7 @@ test("eventos publicados aparecen en la agenda; vencidos y pausados se ocultan y
 });
 
 test("branding de Felos y eventos de muestra conservan precios e inventario al volver a cargarlos", async () => {
-  const imperial = await Product.findOne({ name: "Imperial" });
+  const imperial = await ProductModel.getOne({ name: "Imperial" });
   await seedFelosBrand();
   const first = await request(app).get("/api/public").expect(200);
   await seedFelosBrand();
@@ -517,7 +524,7 @@ test("branding de Felos y eventos de muestra conservan precios e inventario al v
       .filter((event) => event.sampleKey?.startsWith("preview-"))
       .every((event) => event.starts === null && event.isSample),
   );
-  const saved = await Product.findById(imperial.id);
+  const saved = await ProductModel.getById(imperial.id);
   assert.equal(saved.stock, imperial.stock);
   assert.equal(saved.price, imperial.price);
 });

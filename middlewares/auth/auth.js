@@ -1,4 +1,5 @@
 import { UserModel } from "../../models/models.js";
+
 import { Problem } from "../../services/validation.js";
 export async function authenticateAccount(req, res, next) {
   req.account = await UserModel.getById(req.session.userId);

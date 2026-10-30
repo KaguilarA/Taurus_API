@@ -1,4 +1,4 @@
-import { Schema } from "mongoose";
+import { OwlTypes } from "owl-expressjs-utils";
 import { ModelName as ProductModelName } from "../product/model.js";
 
 export const ModelName = "ProductStock";
@@ -12,7 +12,7 @@ const model = {
     min: [0, "Stock cannot be negative"],
   },
   owner: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     ref: ProductModelName,
     required: true,
   },

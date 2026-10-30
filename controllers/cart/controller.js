@@ -1,16 +1,17 @@
+import { OwlTransaction } from "owl-expressjs-utils";
+import {
+  UserModel,
+  CartModel,
+  TableModel,
+  OrderModel,
+  ProductModel,
+  StockMovementModel,
+  BusinessModel,
+} from "../../models/models.js";
 import { saleLine } from "../../services/validation.js";
 
-import mongoose from "mongoose";
 import QRCode from "qrcode";
 
-import {
-  Accounts,
-  Bill,
-  Table,
-  Sale,
-  Product,
-  Movement,
-} from "../../models/models.js";
 import { Problem, text, usernameInput } from "../../services/validation.js";
 import {
   reserveItems,
@@ -41,13 +42,13 @@ const publicOrder = (order) => ({
 });
 async function billView(bill) {
   // Keep totals and lines from the same snapshot while another device orders/pays.
-  return mongoose.connection.transaction(
+  return OwlTransaction(
     async (session) => {
-      const current = await Bill.findById(bill._id).session(session);
-      const orders = await Sale.find({ billId: bill.id })
-        .sort({ createdAt: 1 })
-        .session(session)
-        .lean();
+      const current = await CartModel.getById(bill._id, { session: session });
+      const orders = await OrderModel.getByCoincidence(
+        { billId: bill.id },
+        { sort: { createdAt: 1 }, session: session, lean: true },
+      );
       return {
         token: current.token,
         label: current.label,
@@ -63,7 +64,7 @@ async function billView(bill) {
   );
 }
 async function findBill(value) {
-  const bill = await Bill.findOne({ token: value });
+  const bill = await CartModel.getOne({ token: value });
   if (!bill)
     throw new Problem("Cuenta no encontrada. Escaneá el QR de tu mesa.", 404);
   return bill;
@@ -71,23 +72,23 @@ async function findBill(value) {
 
 export function createPublicOrderingController({ production, origin } = {}) {
   const join = async (req, res) => {
-    const table = await Table.findOne({
+    const table = await TableModel.getOne({
       token: req.params.token,
       active: true,
     });
     if (!table)
       throw new Problem("Este QR no está disponible. Consultá al mesero.", 404);
-    let bill = await Bill.findOne({ tableId: table.id, status: "open" });
+    let bill = await CartModel.getOne({ tableId: table.id, status: "open" });
     if (!bill) {
       try {
-        bill = await Bill.create({
+        bill = await CartModel.save({
           tableId: table.id,
           label: table.name,
           token: token(),
         });
       } catch (err) {
         if (err.code !== 11000) throw err;
-        bill = await Bill.findOne({ tableId: table.id, status: "open" });
+        bill = await CartModel.getOne({ tableId: table.id, status: "open" });
         if (!bill) throw err;
       }
     }
@@ -107,10 +108,10 @@ export function createPublicOrderingController({ production, origin } = {}) {
     const notes = text(req.body.notes ?? "", "Notas", 500);
     let order;
     try {
-      await mongoose.connection.transaction(async (session) => {
-        order = await Sale.findOne({ requestId }).session(session);
+      await OwlTransaction(async (session) => {
+        order = await OrderModel.getOne({ requestId }, { session: session });
         if (order) return;
-        const open = await Bill.findOneAndUpdate(
+        const open = await CartModel.updateWhere(
           { _id: bill._id, status: "open" },
           { $inc: { revision: 1 } },
           { new: true, session },
@@ -120,16 +121,19 @@ export function createPublicOrderingController({ production, origin } = {}) {
             "Esta cuenta ya fue pagada. Iniciá una nueva visita desde el QR.",
             409,
           );
-        const table = await Table.findOne({
-          _id: bill.tableId,
-          active: true,
-        }).session(session);
+        const table = await TableModel.getOne(
+          {
+            _id: bill.tableId,
+            active: true,
+          },
+          { session: session },
+        );
         if (!table) throw new Problem("Esta mesa ya no admite pedidos.", 409);
         const { lines, movements, total } = await reserveItems(
           req.body.items,
           session,
         );
-        [order] = await Sale.create(
+        [order] = await OrderModel.saveMany(
           [
             {
               requestId,
@@ -144,7 +148,7 @@ export function createPublicOrderingController({ production, origin } = {}) {
           ],
           { session },
         );
-        await Bill.updateOne(
+        await CartModel.updateWhere(
           { _id: bill._id },
           { $set: { total: Math.round((open.total + total) * 100) / 100 } },
           { session },
@@ -153,7 +157,7 @@ export function createPublicOrderingController({ production, origin } = {}) {
       });
     } catch (err) {
       if (err.code !== 11000) throw err;
-      order = await Sale.findOne({ requestId });
+      order = await OrderModel.getOne({ requestId });
       if (!order) throw err;
     }
     res.status(201).json(publicOrder(order));
@@ -165,17 +169,18 @@ export function createStaffOrderingController({ production, origin } = {}) {
   const orderActivity = async (req, res) =>
     res.json({ hasOrders: await hasStaffOrders(req.account.role ?? "admin") });
   const service = async (req, res) => {
-    const bills = await Bill.find({ status: "open" })
-      .select("-token -__v")
-      .sort({ createdAt: 1 })
-      .lean();
+    const bills = await CartModel.getByCoincidence(
+      { status: "open" },
+      { select: "-token -__v", sort: { createdAt: 1 }, lean: true },
+    );
     const kitchen = req.account.role === "kitchen";
-    const orders = await Sale.find({
-      billId: { $in: bills.map((b) => String(b._id)) },
-      ...(kitchen ? { orderStatus: { $ne: "delivered" } } : {}),
-    })
-      .sort({ createdAt: 1 })
-      .lean();
+    const orders = await OrderModel.getByCoincidence(
+      {
+        billId: { $in: bills.map((b) => String(b._id)) },
+        ...(kitchen ? { orderStatus: { $ne: "delivered" } } : {}),
+      },
+      { sort: { createdAt: 1 }, lean: true },
+    );
     res.json({
       bills: kitchen
         ? bills.filter((b) =>
@@ -201,8 +206,8 @@ export function createStaffOrderingController({ production, origin } = {}) {
       ready: "preparing",
       delivered: "ready",
     }[next];
-    await mongoose.connection.transaction(async (session) => {
-      const order = await Sale.findOneAndUpdate(
+    await OwlTransaction(async (session) => {
+      const order = await OrderModel.updateWhere(
         { _id: req.params.id, status: "open", orderStatus: previous },
         {
           $set: {
@@ -219,7 +224,7 @@ export function createStaffOrderingController({ production, origin } = {}) {
       );
       if (!order)
         throw new Problem("El pedido cambió. Actualizá el panel.", 409);
-      const bill = await Bill.findOneAndUpdate(
+      const bill = await CartModel.updateWhere(
         { _id: order.billId, status: "open" },
         { $inc: { revision: 1 } },
         { session },
@@ -232,8 +237,8 @@ export function createStaffOrderingController({ production, origin } = {}) {
     const method = paymentMethod(req.body.method);
     const reference = text(req.body.reference ?? "", "Referencia", 150);
     let bill;
-    await mongoose.connection.transaction(async (session) => {
-      bill = await Bill.findById(req.params.id).session(session);
+    await OwlTransaction(async (session) => {
+      bill = await CartModel.getById(req.params.id, { session: session });
       if (!bill) throw new Problem("Cuenta no encontrada.", 404);
       if (bill.status === "paid") {
         if (
@@ -243,7 +248,10 @@ export function createStaffOrderingController({ production, origin } = {}) {
           throw new Problem("Esta cuenta ya fue pagada con otros datos.", 409);
         return;
       }
-      const orders = await Sale.find({ billId: bill.id }).session(session);
+      const orders = await OrderModel.getByCoincidence(
+        { billId: bill.id },
+        { session: session },
+      );
       if (!orders.length || orders.some((o) => o.orderStatus !== "delivered"))
         throw new Problem(
           "Primero entregá todos los pedidos de esta cuenta.",
@@ -255,8 +263,21 @@ export function createStaffOrderingController({ production, origin } = {}) {
       bill.receivedBy = String(req.account._id);
       bill.paidAt = new Date();
       bill.revision++;
-      await bill.save({ session });
-      await Sale.updateMany(
+      bill = await CartModel.update(
+        bill._id,
+        {
+          $set: {
+            status: bill.status,
+            paymentMethod: bill.paymentMethod,
+            paymentReference: bill.paymentReference,
+            receivedBy: bill.receivedBy,
+            paidAt: bill.paidAt,
+            revision: bill.revision,
+          },
+        },
+        { session, runValidators: true },
+      );
+      await OrderModel.updateMany(
         { billId: bill.id, status: "open" },
         {
           $set: {
@@ -294,13 +315,13 @@ export function createCartController({ origin, production } = {}) {
       throw new Problem("Agrega entre 1 y 100 líneas.");
     let sale;
     try {
-      await mongoose.connection.transaction(async (session) => {
-        sale = await Sale.findOne({ requestId }).session(session);
+      await OwlTransaction(async (session) => {
+        sale = await OrderModel.getOne({ requestId }, { session: session });
         if (sale) return;
-        const settings = await mongoose
-          .model("Business")
-          .findOne({ key: "main" })
-          .session(session);
+        const settings = await BusinessModel.getOne(
+          { key: "main" },
+          { session: session },
+        );
         if (!settings)
           throw new Problem(
             "Completá la información del negocio antes de registrar pedidos.",
@@ -309,14 +330,17 @@ export function createCartController({ origin, production } = {}) {
         const lines = [];
         const movements = [];
         for (const input of items) {
-          const product = await Product.findOne({
-            _id: input.productId,
-            active: true,
-          }).session(session);
+          const product = await ProductModel.getOne(
+            {
+              _id: input.productId,
+              active: true,
+            },
+            { session: session },
+          );
           if (!product) throw new Problem("Producto no disponible.", 409);
           const line = saleLine(product, input, settings.servings);
           if (line.consumed) {
-            const updated = await Product.findOneAndUpdate(
+            const updated = await ProductModel.updateWhere(
               { _id: product._id, stock: { $gte: line.consumed } },
               { $inc: { stock: -line.consumed } },
               { new: true, session },
@@ -337,7 +361,7 @@ export function createCartController({ origin, production } = {}) {
           }
           lines.push(line);
         }
-        [sale] = await Sale.create(
+        [sale] = await OrderModel.saveMany(
           [
             {
               requestId,
@@ -353,22 +377,22 @@ export function createCartController({ origin, production } = {}) {
           ],
           { session },
         );
-        await Movement.create(
+        await StockMovementModel.saveMany(
           movements.map((m) => ({ ...m, saleId: String(sale._id) })),
           { session, ordered: true },
         );
       });
     } catch (err) {
       if (err.code !== 11000) throw err;
-      sale = await Sale.findOne({ requestId });
+      sale = await OrderModel.getOne({ requestId });
       if (!sale) throw err;
     }
     res.status(201).json(sale);
   };
   const voidSale = async (req, res) => {
     const reason = text(req.body.reason, "Motivo", 250, true);
-    await mongoose.connection.transaction(async (session) => {
-      const sale = await Sale.findOneAndUpdate(
+    await OwlTransaction(async (session) => {
+      const sale = await OrderModel.updateWhere(
         { _id: req.params.id, status: "paid", billId: { $exists: false } },
         { $set: { status: "void" } },
         { new: true, session },
@@ -376,12 +400,12 @@ export function createCartController({ origin, production } = {}) {
       if (!sale) throw new Problem("Venta no encontrada o ya anulada.", 409);
       for (const item of sale.items)
         if (item.consumed) {
-          const product = await Product.findByIdAndUpdate(
+          const product = await ProductModel.update(
             item.productId,
             { $inc: { stock: item.consumed } },
             { new: true, session },
           );
-          await Movement.create(
+          await StockMovementModel.saveMany(
             [
               {
                 productId: item.productId,
@@ -412,7 +436,7 @@ export function createCartController({ origin, production } = {}) {
       ],
     };
     const [summary, ranking] = await Promise.all([
-      Sale.aggregate([
+      OrderModel.aggregate([
         { $match: match },
         {
           $group: {
@@ -422,7 +446,7 @@ export function createCartController({ origin, production } = {}) {
           },
         },
       ]),
-      Sale.aggregate([
+      OrderModel.aggregate([
         { $match: match },
         { $unwind: "$items" },
         {

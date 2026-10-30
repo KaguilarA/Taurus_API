@@ -47,7 +47,11 @@ La cuenta se consulta con un identificador aleatorio de visita, no con un númer
 
 La arquitectura definida por el proyecto es obligatoria y está documentada en `AGENTS.md`: `index.js` inicia el servidor, `app.js` ensambla middleware y `api/api.js` compone las rutas de `routes/<entidad>/routes.js`. La lógica vive en `controllers/<entidad>/controller.js` y todos los modelos se construyen una sola vez con `OwlModel` en `models/models.js`, extendiendo los esquemas originales de `models/<entidad>/model.js`.
 
-OWL proporciona modelos, hashing, controladores CRUD, conexión, sesiones, autenticación, CORS y límites de peticiones. Los modelos nativos creados por OWL se utilizan para transacciones, agregaciones y actualizaciones condicionales que sus helpers CRUD no expresan. Las rutas de usuario mantienen la restricción de editar únicamente la cuenta de la sesión.
+El backend no importa Mongoose ni lo declara como dependencia directa. Todos los modelos, consultas, escrituras condicionales, transacciones, agregaciones, índices y streams usan la API pública de `owl-expressjs-utils`. Los tipos de los campos también se importan desde OWL. No existen handles de modelos nativos ni adaptadores locales.
+
+Se consume una revisión inmutable del repositorio original de OWL que incorpora las operaciones necesarias para las órdenes, inventario y recuperación de contraseñas. El lockfile fija la revisión y la integridad del paquete compilado; `.npmrc` permite esa dependencia remota directa. Mongoose permanece encapsulado dentro de OWL.
+
+Las bebidas requieren `drinkType` (`alcoholic` o `non_alcoholic`) al crearse o editarse. La API rechaza valores ausentes, vacíos o inválidos, y el formulario no permite guardar sin seleccionarlo. Las bebidas existentes sin clasificación deben completarse al editarlas; no se adivina el contenido de alcohol a partir de su nombre.
 
 ### Migración desde la implementación anterior
 

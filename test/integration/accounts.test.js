@@ -1,19 +1,25 @@
+import { OwlMongoConnect, OwlMongoClose } from "owl-expressjs-utils";
+import {
+  UserModel,
+  ProductModel,
+  PasswordResetModel,
+  registeredModels,
+} from "../../models/models.js";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import mongoose from "mongoose";
 import session from "express-session";
 import request from "supertest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { createApp } from "../../app.js";
-import { Accounts, Product } from "../../models/models.js";
+
 import { productInput } from "../../services/validation.js";
 let replica, app, admin, waiter, victim;
 const password = "Account-tests-password-2026!";
 const nextPassword = "Updated-account-password-2026!";
 before(async () => {
   replica = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  await mongoose.connect(replica.getUri("profile-recovery-tests"));
-  await Promise.all(Object.values(mongoose.models).map((m) => m.init()));
+  await OwlMongoConnect(replica.getUri("profile-recovery-tests"));
+  await Promise.all(registeredModels.map((m) => m.initialize()));
   app = createApp({
     origin: "http://localhost:4200",
     sessionMiddleware: session({
@@ -27,7 +33,7 @@ before(async () => {
     ["waiter", "waiter"],
     ["victim", "kitchen"],
   ])
-    await Accounts.save({
+    await UserModel.save({
       username,
       name: username,
       email: username + "@accounts.local",
@@ -48,7 +54,7 @@ before(async () => {
       .expect(200);
 });
 after(async () => {
-  await mongoose.disconnect();
+  await OwlMongoClose();
   if (replica) await replica.stop();
 });
 test("perfil propio: autenticación, rol protegido, sin edición de otros usuarios", async () => {
@@ -56,7 +62,7 @@ test("perfil propio: autenticación, rol protegido, sin edición de otros usuari
     .put("/api/admin/me")
     .send({ name: "Attack", username: "attacker" })
     .expect(401);
-  const target = await mongoose.model("User").findOne({ username: "victim" });
+  const target = await UserModel.getOne({ username: "victim" });
   const result = await waiter
     .put("/api/admin/me")
     .send({
@@ -69,10 +75,7 @@ test("perfil propio: autenticación, rol protegido, sin edición de otros usuari
     .expect(200);
   assert.equal(result.body.role, "waiter");
   assert.equal(result.body.password, undefined);
-  assert.equal(
-    (await mongoose.model("User").findById(target.id)).name,
-    "victim",
-  );
+  assert.equal((await UserModel.getById(target.id)).name, "victim");
   assert.equal((await waiter.get("/api/admin/me")).body.name, "Waiter updated");
   await waiter
     .put("/api/admin/me")
@@ -182,9 +185,7 @@ test("solicitudes vencidas/rechazadas y usuarios inexistentes no permiten reset"
     .post("/api/auth/reset/request")
     .send({ username: "owner" })
     .expect(202);
-  await mongoose
-    .model("PasswordReset")
-    .updateMany({}, { $set: { expiresAt: new Date(0) } });
+  await PasswordResetModel.updateMany({}, { $set: { expiresAt: new Date(0) } });
   assert.equal(
     (await guest.get("/api/auth/reset/status")).body.state,
     "expired",
@@ -194,6 +195,7 @@ test("subtipo de bebida se valida y no se aplica a comidas", async () => {
   const base = {
     name: "Drink",
     category: "drink",
+    drinkType: "alcoholic",
     inventory: "unit",
     price: 1000,
     drinkType: "alcoholic",
@@ -203,11 +205,47 @@ test("subtipo de bebida se valida y no se aplica a comidas", async () => {
     productInput({ ...base, drinkType: "non_alcoholic" }).drinkType,
     "non_alcoholic",
   );
-  assert.throws(() => productInput({ ...base, drinkType: "invalid" }));
+  for (const drinkType of [undefined, "", "invalid", null])
+    assert.throws(() => productInput({ ...base, drinkType }));
+  await assert.rejects(
+    () => ProductModel.save({ ...base, drinkType: undefined }),
+    /drinkType/,
+  );
   assert.equal(
     productInput({ ...base, category: "food", inventory: "none" }).drinkType,
     "",
   );
-  const created = await Product.create(productInput(base));
+  const created = await ProductModel.save(productInput(base));
   assert.equal(created.drinkType, "alcoholic");
+});
+
+test("la API exige subcategoría al crear y editar bebidas", async () => {
+  const data = {
+    name: "Sin clasificar",
+    category: "drink",
+    inventory: "unit",
+    price: 1000,
+  };
+  for (const drinkType of [undefined, "", "other"])
+    await admin
+      .post("/api/admin/products")
+      .send({ ...data, drinkType })
+      .expect(400);
+  const created = (
+    await admin
+      .post("/api/admin/products")
+      .send({ ...data, drinkType: "non_alcoholic" })
+      .expect(201)
+  ).body;
+  await admin
+    .put("/api/admin/products/" + created._id)
+    .send({ ...data, drinkType: "" })
+    .expect(400);
+  const updated = (
+    await admin
+      .put("/api/admin/products/" + created._id)
+      .send({ ...data, drinkType: "alcoholic" })
+      .expect(200)
+  ).body;
+  assert.equal(updated.drinkType, "alcoholic");
 });

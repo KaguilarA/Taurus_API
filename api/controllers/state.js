@@ -2,7 +2,6 @@ import BaseController from "../../utils/baseController.js";
 import exceptions from "../../utils/exceptions.js";
 
 export default class extends BaseController {
-
   /**
    * Gets all states
    * @param {Object} req The request object.
@@ -10,7 +9,7 @@ export default class extends BaseController {
    */
   async getAll(req, res) {
     try {
-      const states = await this.model.find({}).select("-__v");
+      const states = await this.model.getByCoincidence({}, { select: "-__v" });
 
       res.status(200).json(states);
     } catch (err) {
@@ -26,9 +25,10 @@ export default class extends BaseController {
    */
   async getBusinessStates(req, res) {
     try {
-      const states = await this.model
-        .find({ type: "business" })
-        .select("-__v -type");
+      const states = await this.model.getByCoincidence(
+        { type: "business" },
+        { select: "-__v -type" },
+      );
       res.status(200).json(states);
     } catch (err) {
       res.status(404).json({ message: err.message });
@@ -43,9 +43,10 @@ export default class extends BaseController {
    */
   async getCartStates(req, res) {
     try {
-      const states = await this.model
-        .find({ type: "cart" })
-        .select("-__v -type");
+      const states = await this.model.getByCoincidence(
+        { type: "cart" },
+        { select: "-__v -type" },
+      );
       res.status(200).json(states);
     } catch (err) {
       res.status(404).json({ message: err.message });
@@ -60,9 +61,10 @@ export default class extends BaseController {
    */
   async getMenuItemsStates(req, res) {
     try {
-      const states = await this.model
-        .find({ type: "menu items" })
-        .select("-__v -type");
+      const states = await this.model.getByCoincidence(
+        { type: "menu items" },
+        { select: "-__v -type" },
+      );
       res.status(200).json(states);
     } catch (err) {
       res.status(404).json({ message: err.message });
@@ -77,9 +79,10 @@ export default class extends BaseController {
    */
   async getUsersStates(req, res) {
     try {
-      const states = await this.model
-        .find({ type: "users" })
-        .select("-__v -type");
+      const states = await this.model.getByCoincidence(
+        { type: "users" },
+        { select: "-__v -type" },
+      );
       res.status(200).json(states);
     } catch (err) {
       res.status(404).json({ message: err.message });

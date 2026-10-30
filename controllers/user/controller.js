@@ -1,10 +1,8 @@
-import mongoose from "mongoose";
+import { UserModel, PasswordResetModel } from "../../models/models.js";
 
-import { Accounts, UserModel } from "../../models/models.js";
 import { Problem, text, usernameInput } from "../../services/validation.js";
 import { assertProductionPassword } from "../../config/runtime.js";
-const Account = mongoose.model("User");
-const Reset = mongoose.model("PasswordReset");
+
 const saveSession = (session) =>
   new Promise((resolve, reject) =>
     session.save((e) => (e ? reject(e) : resolve())),
@@ -30,7 +28,7 @@ export function createUserController({ production, origin } = {}) {
       username: usernameInput(req.body.username),
     };
     try {
-      const account = await Account.findByIdAndUpdate(
+      const account = await UserModel.update(
         req.account._id,
         { $set: data },
         { new: true, runValidators: true },
@@ -45,7 +43,7 @@ export function createUserController({ production, origin } = {}) {
   const changePassword = async (req, res) => {
     const password = passwordInput(req.body);
     if (
-      !(await Accounts.compareHash(
+      !(await UserModel.compareHash(
         String(req.account._id),
         "password",
         text(req.body.currentPassword, "Contraseña actual", 200, true),
@@ -53,7 +51,7 @@ export function createUserController({ production, origin } = {}) {
     )
       throw new Problem("La contraseña actual no es correcta.", 403);
     // Compare the version atomically so concurrent password changes cannot overwrite one another.
-    const account = await Account.findOneAndUpdate(
+    const account = await UserModel.updateWhere(
       {
         _id: req.account._id,
         sessionVersion: req.account.sessionVersion ?? 0,
@@ -67,18 +65,20 @@ export function createUserController({ production, origin } = {}) {
     res.json({ ok: true });
   };
   const getPasswordResets = async (req, res) => {
-    const requests = await Reset.find({
-      state: "pending",
-      accountId: { $ne: null },
-      expiresAt: { $gt: new Date() },
-    })
-      .sort({ createdAt: 1 })
-      .lean();
-    const accounts = await Account.find({
-      _id: { $in: requests.map((r) => r.accountId) },
-    })
-      .select("name username")
-      .lean();
+    const requests = await PasswordResetModel.getByCoincidence(
+      {
+        state: "pending",
+        accountId: { $ne: null },
+        expiresAt: { $gt: new Date() },
+      },
+      { sort: { createdAt: 1 }, lean: true },
+    );
+    const accounts = await UserModel.getByCoincidence(
+      {
+        _id: { $in: requests.map((r) => r.accountId) },
+      },
+      { select: "name username", lean: true },
+    );
     res.json(
       requests.map((r) => ({
         _id: r._id,
@@ -91,7 +91,7 @@ export function createUserController({ production, origin } = {}) {
   const decidePasswordReset = async (req, res) => {
     if (!["approved", "rejected"].includes(req.body.state))
       throw new Problem("Decisión inválida.");
-    const reset = await Reset.findOneAndUpdate(
+    const reset = await PasswordResetModel.updateWhere(
       { _id: req.params.id, state: "pending", expiresAt: { $gt: new Date() } },
       { $set: { state: req.body.state, approvedBy: String(req.account._id) } },
       { new: true },
@@ -110,11 +110,10 @@ export function createUserController({ production, origin } = {}) {
 export function createAccountsController({ production } = {}) {
   const getAccounts = async (req, res) =>
     res.json(
-      await mongoose
-        .model("User")
-        .find()
-        .select("username email name role")
-        .lean(),
+      await UserModel.getByCoincidence(
+        {},
+        { select: "username email name role", lean: true },
+      ),
     );
   const registerAccount = async (req, res) => {
     const role = req.body.role;
@@ -123,15 +122,23 @@ export function createAccountsController({ production } = {}) {
     const username = usernameInput(
       req.body.username ?? req.body.email?.split("@")[0],
     );
-    const email = req.body.email === undefined ? undefined : text(req.body.email, "Correo",254,true).toLowerCase();
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Problem("Correo inválido.");
+    const email =
+      req.body.email === undefined
+        ? undefined
+        : text(req.body.email, "Correo", 254, true).toLowerCase();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
+      throw new Problem("Correo inválido.");
     const password = text(req.body.password, "Contraseña", 200, true);
     if (production) assertProductionPassword(password);
     if (password.length < 8)
       throw new Problem("La contraseña requiere al menos 8 caracteres.");
-    if (await Accounts.getOne({ $or: [{ username }, ...(email ? [{email}] : [])] }))
+    if (
+      await UserModel.getOne({
+        $or: [{ username }, ...(email ? [{ email }] : [])],
+      })
+    )
       throw new Problem("Ese usuario ya está registrado.", 409);
-    const account = await Accounts.save({
+    const account = await UserModel.save({
       email,
       username,
       password,

@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+
 import { OwlModel } from "owl-expressjs-utils";
 import ActionLogData from "./actionLog/model.js";
 import BusinessData from "./business/model.js";
@@ -19,7 +19,7 @@ import UserPermissionData from "./userPermission/model.js";
 
 export const ActionLogModel = OwlModel(ActionLogData.name, ActionLogData.model);
 export const BusinessModel = OwlModel(BusinessData.name, BusinessData.model);
-export const CartModel = OwlModel(CartData.name, CartData.model);
+export const CartModel = OwlModel(CartData.name, CartData.model,[],[],{indexes:CartData.indexes});
 export const CartItemModel = OwlModel(CartItemData.name, CartItemData.model);
 export const EmailModel = OwlModel(EmailData.name, EmailData.model);
 export const ImageModel = OwlModel(ImageData.name, ImageData.model);
@@ -77,24 +77,6 @@ export const PasswordResetModel = OwlModel(
   PasswordResetData.model,
 );
 
-// Native views of OWL-created models support transactions and atomic queries.
-export const Accounts = UserModel;
-export const Settings = BusinessModel;
-export const Product = mongoose.model("Product");
-export const Promotion = mongoose.model("Promo");
-export const Sale = mongoose.model("Order");
-export const Bill = mongoose.model("Cart");
-export const Table = mongoose.model("Table");
-export const Event = mongoose.model("Event");
-export const Movement = mongoose.model("StockMovement");
-export const SetupLock = mongoose.model("SetupLock");
-export const PasswordReset = mongoose.model("PasswordReset");
-Bill.schema.index(
-  { tableId: 1 },
-  {
-    unique: true,
-    partialFilterExpression: { status: "open", tableId: { $type: "string" } },
-  },
-);
-
 export const UserModelName = UserData.name;
+
+export const registeredModels = [ActionLogModel,BusinessModel,CartModel,CartItemModel,EmailModel,ImageModel,PermissionModel,PhoneModel,PromoModel,ProductModel,PromoProductModel,ProductStockModel,ProductTypeModel,StateModel,UserModel,UserPermissionModel,EventModel,OrderModel,StockMovementModel,TableModel,SetupLockModel,PasswordResetModel];

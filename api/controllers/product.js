@@ -1,2 +1,2 @@
-export * from '../../controllers/product/controller.js';
-export {default} from '../../controllers/product/controller.js';
+export * from "../../controllers/product/controller.js";
+export { default } from "../../controllers/product/controller.js";

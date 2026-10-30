@@ -1,18 +1,15 @@
-import mongoose from "mongoose";
-
+import { BusinessModel } from "../../models/models.js";
 import { businessInput } from "../../services/business.js";
 
 export function createBusinessController({ origin, production } = {}) {
   const update = async (req, res) => {
     const data = businessInput(req.body);
     res.json(
-      await mongoose
-        .model("Business")
-        .findOneAndUpdate(
-          { key: "main" },
-          { $set: data },
-          { new: true, upsert: true, runValidators: true },
-        ),
+      await BusinessModel.updateWhere(
+        { key: "main" },
+        { $set: data },
+        { new: true, upsert: true, runValidators: true },
+      ),
     );
   };
   return { update };

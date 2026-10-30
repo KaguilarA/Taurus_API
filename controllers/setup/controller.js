@@ -1,14 +1,18 @@
-import mongoose from "mongoose";
-
+import { OwlTransaction } from "owl-expressjs-utils";
+import {
+  SetupLockModel,
+  UserModel,
+  BusinessModel,
+} from "../../models/models.js";
 import { Problem, text, usernameInput } from "../../services/validation.js";
 import { assertProductionPassword } from "../../config/runtime.js";
-import { SetupLock } from "../../models/models.js";
+
 const adminFilter = { role: "admin" };
 export async function needsFirstAdmin() {
-  return !(await mongoose.model("User").exists(adminFilter));
+  return !(await UserModel.exists(adminFilter));
 }
 export async function needsBusiness() {
-  return !(await mongoose.model("Business").exists({
+  return !(await BusinessModel.exists({
     key: "main",
     name: { $type: "string", $ne: "" },
     currency: { $regex: /^[A-Z]{3}$/ },
@@ -41,18 +45,18 @@ export function createSetupController({ production, origin } = {}) {
       throw new Problem("Las contraseñas no coinciden.");
     let account;
     try {
-      await mongoose.connection.transaction(async (session) => {
+      await OwlTransaction(async (session) => {
         // Every API instance writes the same document: concurrent initial registrations
         // serialize in MongoDB, then recheck the actual administrator collection.
-        await SetupLock.updateOne(
+        await SetupLockModel.updateWhere(
           { _id: "first-admin" },
           { $inc: { revision: 1 } },
           { upsert: true, session },
         );
-        const AccountsModel = mongoose.model("User");
-        if (await AccountsModel.exists(adminFilter).session(session))
+
+        if (await UserModel.exists(adminFilter, { session: session }))
           throw new Problem("La configuración inicial ya fue completada.", 409);
-        [account] = await AccountsModel.create(
+        [account] = await UserModel.saveMany(
           [
             {
               username,

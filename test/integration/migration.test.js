@@ -1,26 +1,37 @@
+import {
+  OwlMongoConnect,
+  OwlDatabase,
+  OwlMongoClose,
+  OwlObjectId,
+} from "owl-expressjs-utils";
+import {
+  UserModel,
+  ProductModel,
+  OrderModel,
+  CartModel,
+  registeredModels,
+} from "../../models/models.js";
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import mongoose from "mongoose";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
-import { Accounts, Product, Sale, Bill } from "../../models/models.js";
+
 import { migrateLegacyCollections } from "../../db/migrate-legacy.js";
 let replica;
 before(async () => {
   replica = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  await mongoose.connect(replica.getUri("canonical-migration-tests"));
-  await Promise.all(Object.values(mongoose.models).map((m) => m.init()));
+  await OwlMongoConnect(replica.getUri("canonical-migration-tests"));
+  await Promise.all(registeredModels.map((m) => m.initialize()));
 });
 beforeEach(async () => {
-  for (const c of await mongoose.connection.db.collections())
-    await c.deleteMany({});
+  for (const c of await OwlDatabase().collections()) await c.deleteMany({});
 });
 after(async () => {
-  await mongoose.disconnect();
+  await OwlMongoClose();
   await replica?.stop();
 });
 test("migración conserva IDs, hashes, inventario, pedidos, cuentas y fuentes; solo se ejecuta una vez", async () => {
-  const db = mongoose.connection.db;
-  const user = await Accounts.save({
+  const db = OwlDatabase();
+  const user = await UserModel.save({
     name: "Owner",
     username: "owner",
     email: "owner@tests.local",
@@ -29,14 +40,15 @@ test("migración conserva IDs, hashes, inventario, pedidos, cuentas y fuentes; s
   });
   const stored = await db.collection("users").findOne({ _id: user._id });
   await db.collection("users").deleteOne({ _id: user._id });
-  const productId = new mongoose.Types.ObjectId(),
-    cartId = new mongoose.Types.ObjectId(),
-    orderId = new mongoose.Types.ObjectId();
+  const productId = new OwlObjectId(),
+    cartId = new OwlObjectId(),
+    orderId = new OwlObjectId();
   await db.collection("restaurantaccounts").insertOne(stored);
   await db.collection("restaurantproducts").insertOne({
     _id: productId,
     name: "Original",
     category: "drink",
+    drinkType: "alcoholic",
     inventory: "unit",
     price: 1500,
     stock: 17,
@@ -66,26 +78,26 @@ test("migración conserva IDs, hashes, inventario, pedidos, cuentas y fuentes; s
     stored.password,
   );
   assert.equal(
-    await Accounts.compareHash(
+    await UserModel.compareHash(
       String(user._id),
       "password",
       "Preserved-password-2026!",
     ),
     true,
   );
-  assert.equal((await Product.findById(productId)).stock, 17);
-  assert.equal((await Sale.findById(orderId)).billId, String(cartId));
-  assert.equal((await Bill.findById(cartId)).token, "preserved-qr-token");
+  assert.equal((await ProductModel.getById(productId)).stock, 17);
+  assert.equal((await OrderModel.getById(orderId)).billId, String(cartId));
+  assert.equal((await CartModel.getById(cartId)).token, "preserved-qr-token");
   assert.equal(await db.collection("restaurantaccounts").countDocuments(), 1);
-  await Product.updateOne({ _id: productId }, { $set: { stock: 12 } });
+  await ProductModel.updateWhere({ _id: productId }, { $set: { stock: 12 } });
   await migrateLegacyCollections();
-  assert.equal((await Product.findById(productId)).stock, 12);
+  assert.equal((await ProductModel.getById(productId)).stock, 12);
 });
 test("un conflicto en cualquier colección revierte toda la migración sin borrar ni sobrescribir", async () => {
-  const db = mongoose.connection.db,
-    id = new mongoose.Types.ObjectId();
+  const db = OwlDatabase(),
+    id = new OwlObjectId();
   await db.collection("restaurantaccounts").insertOne({
-    _id: new mongoose.Types.ObjectId(),
+    _id: new OwlObjectId(),
     username: "copy-must-rollback",
   });
   await db

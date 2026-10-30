@@ -1,10 +1,14 @@
-import { Table } from "../../models/models.js";
+import { TableModel } from "../../models/models.js";
+
 import QRCode from "qrcode";
 import { token } from "../../services/tokens.js";
 import { Problem, text } from "../../services/validation.js";
 export function createTableController({ origin } = {}) {
   const getTables = async (req, res) => {
-    const tables = await Table.find().sort({ createdAt: 1 }).lean();
+    const tables = await TableModel.getByCoincidence(
+      {},
+      { sort: { createdAt: 1 }, lean: true },
+    );
     res.json(
       await Promise.all(
         tables.map(async (table) => {
@@ -20,7 +24,7 @@ export function createTableController({ origin } = {}) {
   };
   const registerTable = async (req, res) =>
     res.status(201).json(
-      await Table.create({
+      await TableModel.save({
         name: text(req.body.name, "Mesa o posición", 100, true),
         token: token(),
       }),
@@ -28,7 +32,7 @@ export function createTableController({ origin } = {}) {
   const updateTable = async (req, res) => {
     if (typeof req.body.active !== "boolean")
       throw new Problem("Estado inválido.");
-    const table = await Table.findByIdAndUpdate(
+    const table = await TableModel.update(
       req.params.id,
       { active: req.body.active },
       { new: true },

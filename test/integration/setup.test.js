@@ -1,11 +1,21 @@
+import {
+  OwlMongoConnect,
+  OwlMongoClose,
+  OwlCollection,
+} from "owl-expressjs-utils";
+import {
+  UserModel,
+  SetupLockModel,
+  BusinessModel,
+  registeredModels,
+} from "../../models/models.js";
 import { test, before, beforeEach, after } from "node:test";
 import assert from "node:assert/strict";
-import mongoose from "mongoose";
 import session from "express-session";
 import request from "supertest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { createApp } from "../../app.js";
-import { Accounts, SetupLock } from "../../models/models.js";
+
 import { seed } from "../fixtures/seed.js";
 import { seed as migrateStoredBusiness } from "../../db/migrations.js";
 
@@ -19,11 +29,9 @@ const body = (username = "owner") => ({
 });
 before(async () => {
   replica = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  await mongoose.connect(replica.getUri("initial-setup-tests"));
+  await OwlMongoConnect(replica.getUri("initial-setup-tests"));
   await seed({});
-  await Promise.all(
-    Object.values(mongoose.models).map((model) => model.init()),
-  );
+  await Promise.all(registeredModels.map((model) => model.initialize()));
   const sessions = session({
     secret: "setup-tests-session-secret-longer-than-32-characters",
     resave: false,
@@ -39,11 +47,11 @@ before(async () => {
   });
 });
 beforeEach(async () => {
-  await mongoose.model("User").deleteMany({});
-  await SetupLock.deleteMany({});
+  await UserModel.deleteMany({});
+  await SetupLockModel.deleteMany({});
 });
 after(async () => {
-  await mongoose.disconnect();
+  await OwlMongoClose();
   if (replica) await replica.stop();
 });
 
@@ -52,7 +60,7 @@ test("una base nueva pide configuración; otros roles no sustituyen al administr
     (await request(app).get("/api/setup/status").expect(200)).body,
     { required: true, businessRequired: false },
   );
-  await Accounts.save({
+  await UserModel.save({
     username: "waiter",
     email: "waiter@accounts.local",
     password,
@@ -74,7 +82,7 @@ test("el registro valida usuario, contraseña fuerte y confirmación sin crear c
       .post("/api/setup/admin")
       .send({ ...body(), ...patch })
       .expect(400);
-  assert.equal(await mongoose.model("User").countDocuments(), 0);
+  assert.equal(await UserModel.countDocuments(), 0);
 });
 
 test("crea el primer admin con hash de OWL, inicia sesión y cierra el registro", async () => {
@@ -85,9 +93,9 @@ test("crea el primer admin con hash de OWL, inicia sesión y cierra el registro"
     .expect(201);
   assert.equal(result.body.role, "admin");
   assert.equal(result.body.password, undefined);
-  const account = await Accounts.getOne({ username: "owner" });
+  const account = await UserModel.getOne({ username: "owner" });
   assert.equal(
-    await Accounts.compareHash(String(account._id), "password", password),
+    await UserModel.compareHash(String(account._id), "password", password),
     true,
   );
   await browser.get("/api/admin/state").expect(200);
@@ -106,14 +114,11 @@ test("dos instancias no pueden registrar dos administradores a la vez", async ()
   ]);
   assert.equal(results.filter((result) => result.status === 201).length, 1);
   assert.ok(results.some((result) => [404, 409].includes(result.status)));
-  assert.equal(
-    await mongoose.model("User").countDocuments({ role: "admin" }),
-    1,
-  );
+  assert.equal(await UserModel.countDocuments({ role: "admin" }), 1);
 });
 
 test("un usuario ocupado revierte la transacción y permite reintentar el primer registro", async () => {
-  await Accounts.save({
+  await UserModel.save({
     username: "owner",
     email: "owner@accounts.local",
     password,
@@ -131,23 +136,21 @@ test("un usuario ocupado revierte la transacción y permite reintentar el primer
 });
 
 test("un usuario original sin rol no obtiene privilegios administrativos automáticamente", async () => {
-  const account = await Accounts.save({
+  const account = await UserModel.save({
     username: "legacy",
     email: "legacy@accounts.local",
     password,
   });
-  await mongoose
-    .model("User")
-    .updateOne({ _id: account._id }, { $unset: { role: 1 } });
+  await UserModel.updateWhere({ _id: account._id }, { $unset: { role: 1 } });
   assert.equal(
     (await request(app).get("/api/setup/status")).body.required,
     true,
   );
-  assert.equal((await Accounts.getById(account._id)).role, "waiter");
+  assert.equal((await UserModel.getById(account._id)).role, "waiter");
 });
 
 test("el administrador se registra antes de completar business y la carta usa esos datos", async () => {
-  await mongoose.model("Business").deleteMany({});
+  await BusinessModel.deleteMany({});
   const browser = request.agent(app);
   await browser.post("/api/setup/admin").send(body()).expect(201);
   assert.deepEqual((await browser.get("/api/setup/status")).body, {
@@ -178,14 +181,8 @@ test("el administrador se registra antes de completar business y la carta usa es
     "accent",
   ])
     assert.equal(published[key], business[key]);
-  assert.equal(
-    await mongoose.connection.collection("businesses").countDocuments(),
-    1,
-  );
-  assert.equal(
-    await mongoose.connection.collection("restaurantsettings").countDocuments(),
-    0,
-  );
+  assert.equal(await OwlCollection("businesses").countDocuments(), 1);
+  assert.equal(await OwlCollection("restaurantsettings").countDocuments(), 0);
   assert.equal(
     (await browser.get("/api/setup/status")).body.businessRequired,
     false,
@@ -193,8 +190,8 @@ test("el administrador se registra antes de completar business y la carta usa es
 });
 
 test("la migración conserva el perfil antiguo almacenado sin volver a quemar datos", async () => {
-  await mongoose.model("Business").deleteMany({});
-  await mongoose.connection.collection("restaurantsettings").insertOne({
+  await BusinessModel.deleteMany({});
+  await OwlCollection("restaurantsettings").insertOne({
     key: "main",
     name: "Negocio existente",
     currency: "EUR",
@@ -204,12 +201,9 @@ test("la migración conserva el perfil antiguo almacenado sin volver a quemar da
   });
   await migrateStoredBusiness();
   await migrateStoredBusiness();
-  const business = await mongoose.model("Business").findOne({ key: "main" });
+  const business = await BusinessModel.getOne({ key: "main" });
   assert.equal(business.name, "Negocio existente");
   assert.equal(business.phone, "9999-1111");
-  assert.equal(await mongoose.model("Business").countDocuments(), 1);
-  assert.equal(
-    await mongoose.connection.collection("restaurantsettings").countDocuments(),
-    1,
-  );
+  assert.equal(await BusinessModel.countDocuments(), 1);
+  assert.equal(await OwlCollection("restaurantsettings").countDocuments(), 1);
 });

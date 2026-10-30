@@ -1,13 +1,12 @@
+import { OwlMongoStatus, OwlMongoCommand } from "owl-expressjs-utils";
 import {
-  Settings,
-  Product,
-  Promotion,
-  Sale,
-  Movement,
-  Event,
+  BusinessModel,
+  ProductModel,
+  PromoModel,
+  OrderModel,
+  StockMovementModel,
+  EventModel,
 } from "../../models/models.js";
-
-import mongoose from "mongoose";
 
 import { deploymentInfo } from "../../services/deployment.js";
 
@@ -20,9 +19,9 @@ export function createPublicController({
   const deployment = (req, res) => res.json(deploymentInfo());
   const ready = async (req, res) => {
     try {
-      if (application.draining || mongoose.connection.readyState !== 1)
+      if (application.draining || OwlMongoStatus() !== 1)
         return res.status(503).json({ ok: false });
-      await mongoose.connection.db.command({ ping: 1 }, { maxTimeMS: 2000 });
+      await OwlMongoCommand({ ping: 1 }, { maxTimeMS: 2000 });
       res.json({ ok: true });
     } catch {
       res.status(503).json({ ok: false });
@@ -30,48 +29,68 @@ export function createPublicController({
   };
   const menu = async (req, res) => {
     const now = new Date();
-    const products = await Product.find({ active: true })
-      .select("-stock -minimum -__v")
-      .lean();
+    const products = await ProductModel.getByCoincidence(
+      { active: true },
+      { select: "-stock -minimum -__v", lean: true },
+    );
     res.json({
-      settings: await Settings.getOne({ key: "main" }),
+      settings: await BusinessModel.getOne({ key: "main" }),
       products,
-      promotions: await Promotion.find({
-        active: true,
-        starts: { $lte: now },
-        ends: { $gte: now },
-      }).lean(),
-      events: await Event.find({
-        active: true,
-        ...(production ? { isSample: { $ne: true } } : {}),
-        $or: [{ ends: null }, { ends: { $gte: now } }],
-      })
-        .sort({ starts: 1, createdAt: -1 })
-        .lean(),
+      promotions: await PromoModel.getByCoincidence(
+        {
+          active: true,
+          starts: { $lte: now },
+          ends: { $gte: now },
+        },
+        { lean: true },
+      ),
+      events: await EventModel.getByCoincidence(
+        {
+          active: true,
+          ...(production ? { isSample: { $ne: true } } : {}),
+          $or: [{ ends: null }, { ends: { $gte: now } }],
+        },
+        { sort: { starts: 1, createdAt: -1 }, lean: true },
+      ),
     });
   };
   const workspace = async (req, res) =>
     res.json({
-      settings: await Settings.getOne({ key: "main" }),
+      settings: await BusinessModel.getOne({ key: "main" }),
       products:
         (req.account.role ?? "admin") === "admin"
-          ? await Product.find().sort({ name: 1 }).lean()
+          ? await ProductModel.getByCoincidence(
+              {},
+              { sort: { name: 1 }, lean: true },
+            )
           : [],
       promotions:
         (req.account.role ?? "admin") === "admin"
-          ? await Promotion.find().sort({ createdAt: -1 }).lean()
+          ? await PromoModel.getByCoincidence(
+              {},
+              { sort: { createdAt: -1 }, lean: true },
+            )
           : [],
       sales:
         (req.account.role ?? "admin") === "admin"
-          ? await Sale.find().sort({ createdAt: -1 }).limit(100).lean()
+          ? await OrderModel.getByCoincidence(
+              {},
+              { sort: { createdAt: -1 }, limit: 100, lean: true },
+            )
           : [],
       movements:
         (req.account.role ?? "admin") === "admin"
-          ? await Movement.find().sort({ createdAt: -1 }).limit(100).lean()
+          ? await StockMovementModel.getByCoincidence(
+              {},
+              { sort: { createdAt: -1 }, limit: 100, lean: true },
+            )
           : [],
       events:
         (req.account.role ?? "admin") === "admin"
-          ? await Event.find().sort({ starts: 1 }).lean()
+          ? await EventModel.getByCoincidence(
+              {},
+              { sort: { starts: 1 }, lean: true },
+            )
           : [],
     });
   return { health, deployment, ready, menu, workspace };

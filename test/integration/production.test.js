@@ -1,15 +1,24 @@
+import {
+  OwlSession,
+  OwlMongoConnect,
+  OwlMongoClose,
+} from "owl-expressjs-utils";
+import {
+  UserModel,
+  EventModel,
+  registeredModels,
+} from "../../models/models.js";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, writeFile, rm, realpath } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, dirname, basename } from "node:path";
-import mongoose from "mongoose";
-import { OwlSession } from "owl-expressjs-utils";
+
 import request from "supertest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { createApp } from "../../app.js";
 import { seed } from "../fixtures/seed.js";
-import { Accounts, Event } from "../../models/models.js";
+
 import {
   rotatePassword,
   assertProductionAccounts,
@@ -22,11 +31,9 @@ const password = "Strong-owner-password-2026!";
 before(async () => {
   replica = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   const uri = replica.getUri("production-fixture");
-  await mongoose.connect(uri);
+  await OwlMongoConnect(uri);
   await seed({ username: "owner", email: "owner@accounts.local", password });
-  await Promise.all(
-    Object.values(mongoose.models).map((model) => model.init()),
-  );
+  await Promise.all(registeredModels.map((model) => model.initialize()));
   directory = await mkdtemp(join(tmpdir(), "felos-static-"));
   await writeFile(
     join(directory, "index.html"),
@@ -54,7 +61,7 @@ before(async () => {
 });
 after(async () => {
   if (store) await store.close();
-  await mongoose.disconnect();
+  await OwlMongoClose();
   if (replica) await replica.stop();
   if (directory) {
     const target = await realpath(directory);
@@ -111,7 +118,7 @@ test("readiness detecta drenaje y los eventos de muestra no se anuncian en produ
   app.locals.draining = true;
   await request(app).get("/api/ready").expect(503);
   app.locals.draining = false;
-  await Event.create({ title: "Muestra", active: true, isSample: true });
+  await EventModel.save({ title: "Muestra", active: true, isSample: true });
   const publicState = await request(app).get("/api/public").expect(200);
   assert.equal(publicState.body.events.length, 0);
   await assertProductionAccounts();
@@ -119,9 +126,9 @@ test("readiness detecta drenaje y los eventos de muestra no se anuncian en produ
 test("rotar la contraseña invalida sesiones previas y conserva hashing", async () => {
   await rotatePassword("owner", "Another-strong-password-2026!");
   await request(app).get("/api/admin/state").set("Cookie", cookie).expect(401);
-  const account = await Accounts.getOne({ username: "owner" });
+  const account = await UserModel.getOne({ username: "owner" });
   assert.equal(
-    await Accounts.compareHash(
+    await UserModel.compareHash(
       String(account._id),
       "password",
       "Another-strong-password-2026!",
@@ -138,7 +145,7 @@ test("rotar la contraseña invalida sesiones previas y conserva hashing", async 
     .set("X-Forwarded-Proto", "https")
     .send({ username: "owner", password: "Another-strong-password-2026!" })
     .expect(200);
-  await Accounts.save({
+  await UserModel.save({
     username: "test-user",
     email: "test@accounts.local",
     password: "12345678",

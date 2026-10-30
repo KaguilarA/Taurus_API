@@ -157,11 +157,26 @@ try {
     assert.ok(response.ok, `${route}: ${response.status}`);
     return response.json();
   }
-  assert.equal((await (await fetch(base + "/api/setup/status")).json()).businessRequired, true);
-  const profile = { name: "Smoke business", subtitle: "Test kitchen", currency: "USD", accent: "#445566", servings: { large: 90, small: 60, shot: 30 } };
+  assert.equal(
+    (await (await fetch(base + "/api/setup/status")).json()).businessRequired,
+    true,
+  );
+  const profile = {
+    name: "Smoke business",
+    subtitle: "Test kitchen",
+    currency: "USD",
+    accent: "#445566",
+    servings: { large: 90, small: 60, shot: 30 },
+  };
   await send("/api/admin/settings", profile, "PUT");
-  assert.equal((await (await fetch(base + "/api/setup/status")).json()).businessRequired, false);
-  assert.equal((await (await fetch(base + "/api/public")).json()).settings.name, profile.name);
+  assert.equal(
+    (await (await fetch(base + "/api/setup/status")).json()).businessRequired,
+    false,
+  );
+  assert.equal(
+    (await (await fetch(base + "/api/public")).json()).settings.name,
+    profile.name,
+  );
   const food = await send("/api/admin/products", {
     name: "Smoke food",
     category: "food",

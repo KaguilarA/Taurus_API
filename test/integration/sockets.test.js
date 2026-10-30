@@ -1,15 +1,21 @@
+import { OwlMongoConnect, OwlMongoClose } from "owl-expressjs-utils";
+import {
+  UserModel,
+  ProductModel,
+  CartModel,
+  registeredModels,
+} from "../../models/models.js";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
 import { once } from "node:events";
-import mongoose from "mongoose";
 import session from "express-session";
 import request from "supertest";
 import { io } from "socket.io-client";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { createApp } from "../../app.js";
 import { seed } from "../fixtures/seed.js";
-import { Accounts, Product, Bill } from "../../models/models.js";
+
 import {
   attachOrderSockets,
   ORDER_SOCKET_PATH,
@@ -90,28 +96,26 @@ async function delivered(id) {
 
 before(async () => {
   replica = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  await mongoose.connect(replica.getUri("socket-tests"));
+  await OwlMongoConnect(replica.getUri("socket-tests"));
   await seed({
     email: "admin@socket.local",
     username: "admin",
     password,
     demo: true,
   });
-  await Accounts.save({
+  await UserModel.save({
     email: "kitchen@socket.local",
     username: "kitchen",
     role: "kitchen",
     password,
   });
-  await Accounts.save({
+  await UserModel.save({
     email: "waiter@socket.local",
     username: "waiter",
     role: "waiter",
     password,
   });
-  await Promise.all(
-    Object.values(mongoose.models).map((model) => model.init()),
-  );
+  await Promise.all(registeredModels.map((model) => model.initialize()));
   const sessions = session({
     secret: "socket-tests-secret-with-more-than-32-chars",
     resave: false,
@@ -152,7 +156,7 @@ before(async () => {
     .send({ username: "waiter", password })
     .expect(200);
   waiterCookie = waiter.headers["set-cookie"][0].split(";")[0];
-  food = await Product.findOne({ category: "food" });
+  food = await ProductModel.getOne({ category: "food" });
   for (const name of ["Mesa socket 1", "Mesa socket 2"]) {
     const table = await admin
       .post("/api/admin/tables")
@@ -169,7 +173,7 @@ before(async () => {
 after(async () => {
   for (const socket of clients) socket.disconnect();
   if (layers) await Promise.all(layers.map((layer) => layer.close()));
-  await mongoose.disconnect();
+  await OwlMongoClose();
   if (replica) await replica.stop();
 });
 
@@ -220,7 +224,7 @@ test("la primera orden habilita cliente, cocina y mesero; los cambios cruzan ins
   adminClient = await subscribe({ kind: "staff" }, { cookie, server: 1 });
   kitchenClient = await subscribe({ kind: "staff" }, { cookie: kitchenCookie });
   waiterClient = await subscribe({ kind: "staff" }, { cookie: waiterCookie });
-  const bill = await Bill.findOne({ token: first.token });
+  const bill = await CartModel.getOne({ token: first.token });
   const own = event(
     guestClient,
     "orders:changed",
@@ -243,8 +247,8 @@ test("la primera orden habilita cliente, cocina y mesero; los cambios cruzan ins
 });
 
 test("una cuenta nunca se suscribe a los pedidos de otra mesa", async () => {
-  const ownBill = await Bill.findOne({ token: first.token });
-  const otherBill = await Bill.findOne({ token: second.token });
+  const ownBill = await CartModel.getOne({ token: first.token });
+  const otherBill = await CartModel.getOne({ token: second.token });
   const observed = [];
   guestClient.on("orders:changed", (data) => observed.push(data.billId));
   const staff = event(
@@ -297,7 +301,7 @@ test("cocina se desconecta al terminar entregas y el cliente al pagar; el mesero
   const guestClosed = event(guestClient, "disconnect");
   await admin
     .post(
-      `/api/admin/bills/${(await Bill.findOne({ token: first.token })).id}/pay`,
+      `/api/admin/bills/${(await CartModel.getOne({ token: first.token })).id}/pay`,
     )
     .send({ method: "cash" })
     .expect(200);
@@ -311,7 +315,7 @@ test("cocina se desconecta al terminar entregas y el cliente al pagar; el mesero
   const adminClosed = event(adminClient, "disconnect");
   await admin
     .post(
-      `/api/admin/bills/${(await Bill.findOne({ token: second.token })).id}/pay`,
+      `/api/admin/bills/${(await CartModel.getOne({ token: second.token })).id}/pay`,
     )
     .send({ method: "card" })
     .expect(200);

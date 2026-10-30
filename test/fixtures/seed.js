@@ -1,16 +1,16 @@
 import {
-  Accounts,
-  Settings,
-  Product,
-  Promotion,
-  Movement,
+  UserModel,
+  BusinessModel,
+  ProductModel,
+  PromoModel,
+  StockMovementModel,
 } from "../../models/models.js";
-import mongoose from "mongoose";
+
 import { usernameInput } from "../../services/validation.js";
 
 export async function seed({ email, username, password, demo = false }) {
-  if (!(await Settings.getOne({ key: "main" })))
-    await Settings.save({
+  if (!(await BusinessModel.getOne({ key: "main" })))
+    await BusinessModel.save({
       key: "main",
       name: "FELOS BAR",
       subtitle: "RESTAURANTE, BAR Y PUB",
@@ -28,7 +28,7 @@ export async function seed({ email, username, password, demo = false }) {
   if (
     email &&
     password &&
-    !(await Accounts.getOne({
+    !(await UserModel.getOne({
       $or: [
         { email: email.toLowerCase() },
         ...(username ? [{ username: username.toLowerCase() }] : []),
@@ -37,7 +37,7 @@ export async function seed({ email, username, password, demo = false }) {
   ) {
     if (password.length < 8)
       throw new Error("ADMIN_PASSWORD requiere al menos 8 caracteres.");
-    await Accounts.save({
+    await UserModel.save({
       role: "admin",
       email: email.toLowerCase(),
       password,
@@ -45,10 +45,11 @@ export async function seed({ email, username, password, demo = false }) {
     });
   }
   // Give existing email-based accounts a username without changing their password.
-  const accountModel = mongoose.model("User");
-  for (const account of await accountModel
-    .find({ username: { $exists: false } })
-    .sort({ createdAt: 1 })) {
+
+  for (const account of await UserModel.getByCoincidence(
+    { username: { $exists: false } },
+    { sort: { createdAt: 1 } },
+  )) {
     const base = (
       account.email
         .split("@")[0]
@@ -60,19 +61,21 @@ export async function seed({ email, username, password, demo = false }) {
       account.email === email?.toLowerCase() && username
         ? usernameInput(username)
         : base;
-    const taken = await accountModel.exists({
+    const taken = await UserModel.exists({
       username: candidate,
       _id: { $ne: account._id },
     });
-    await Accounts.update(String(account._id), {
+    await UserModel.update(String(account._id), {
       username: taken ? `${base}-${String(account._id).slice(-6)}` : candidate,
     });
   }
-  const currentSettings = await Settings.getOne({ key: "main" });
+  const currentSettings = await BusinessModel.getOne({ key: "main" });
   if (currentSettings.accent?.toLowerCase() === "#b9ef70")
-    await Settings.update(String(currentSettings._id), { accent: "#F5A623" });
-  if (!demo || (await Product.countDocuments())) return;
-  const products = await Product.create([
+    await BusinessModel.update(String(currentSettings._id), {
+      accent: "#F5A623",
+    });
+  if (!demo || (await ProductModel.countDocuments())) return;
+  const products = await ProductModel.saveMany([
     {
       name: "Papas tostadas de la casa",
       description:
@@ -115,6 +118,7 @@ export async function seed({ email, username, password, demo = false }) {
       name: "Ron de la casa",
       description: "Ron añejo. Elegí tu medida y disfrutalo a tu manera.",
       category: "drink",
+      drinkType: "alcoholic",
       inventory: "ml",
       price: 2000,
       prices: { large: 4500, small: 3200, shot: 2000 },
@@ -128,6 +132,7 @@ export async function seed({ email, username, password, demo = false }) {
       name: "Whisky reserva",
       description: "Notas de roble, vainilla y un final suave.",
       category: "drink",
+      drinkType: "alcoholic",
       inventory: "ml",
       price: 3000,
       prices: { large: 6500, small: 4500, shot: 3000 },
@@ -140,6 +145,7 @@ export async function seed({ email, username, password, demo = false }) {
       name: "Cerveza artesanal",
       description: "Bien fría, local y con mucho carácter. Botella de 355 ml.",
       category: "drink",
+      drinkType: "alcoholic",
       inventory: "unit",
       price: 2800,
       stock: 24,
@@ -148,7 +154,7 @@ export async function seed({ email, username, password, demo = false }) {
       featured: true,
     },
   ]);
-  await Movement.create(
+  await StockMovementModel.saveMany(
     products
       .filter((p) => p.inventory !== "none")
       .map((p) => ({
@@ -160,7 +166,7 @@ export async function seed({ email, username, password, demo = false }) {
         reason: "Carga inicial de demostración",
       })),
   );
-  await Promotion.create({
+  await PromoModel.save({
     title: "La mejor hora es aquí.",
     description:
       "Happy hour · Consultá en barra las bebidas participantes. Martes a jueves de 4 a 6 p. m.",

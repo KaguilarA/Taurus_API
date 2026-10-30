@@ -1,23 +1,29 @@
+import { OwlMongoConnect, OwlMongoClose } from "owl-expressjs-utils";
+import {
+  ProductModel,
+  OrderModel,
+  StockMovementModel,
+  UserModel,
+  registeredModels,
+} from "../../models/models.js";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
-import mongoose from "mongoose";
 import session from "express-session";
 import request from "supertest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { createApp } from "../../app.js";
 import { seed } from "../fixtures/seed.js";
-import { Product, Sale, Movement, Accounts } from "../../models/models.js";
 
 let replica, app, admin, rum, food, beer;
 before(async () => {
   replica = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  await mongoose.connect(replica.getUri("tests"));
+  await OwlMongoConnect(replica.getUri("tests"));
   await seed({
     email: "admin@test.local",
     password: "Test-password-2026!",
     demo: true,
   });
-  await Promise.all(Object.values(mongoose.models).map((m) => m.init()));
+  await Promise.all(registeredModels.map((m) => m.initialize()));
   app = createApp({
     origin: "http://localhost:4200",
     sessionMiddleware: session({
@@ -31,12 +37,12 @@ before(async () => {
     .post("/api/auth/login")
     .send({ email: "admin@test.local", password: "Test-password-2026!" })
     .expect(200);
-  rum = await Product.findOne({ name: "Ron de la casa" });
-  food = await Product.findOne({ name: "Burger de la casa" });
-  beer = await Product.findOne({ name: "Cerveza artesanal" });
+  rum = await ProductModel.getOne({ name: "Ron de la casa" });
+  food = await ProductModel.getOne({ name: "Burger de la casa" });
+  beer = await ProductModel.getOne({ name: "Cerveza artesanal" });
 });
 after(async () => {
-  await mongoose.disconnect();
+  await OwlMongoClose();
   if (replica) await replica.stop();
 });
 
@@ -46,10 +52,10 @@ test("OWL protege contraseñas y endpoints administrativos", async () => {
     .post("/api/auth/login")
     .send({ email: "admin@test.local", password: "wrong" })
     .expect(401);
-  const account = await Accounts.getOne({ email: "admin@test.local" });
+  const account = await UserModel.getOne({ email: "admin@test.local" });
   assert.equal(account.toJSON().password, undefined);
   assert.equal(
-    await Accounts.compareHash(
+    await UserModel.compareHash(
       String(account._id),
       "password",
       "Test-password-2026!",
@@ -83,13 +89,16 @@ test("venta mixta descuenta ml y unidades; comida no consume inventario", async 
     })
     .expect(201);
   assert.equal(body.total, 9000 + 3200 + 13000 + 8400);
-  assert.equal((await Product.findById(rum.id)).stock, 2760);
-  assert.equal((await Product.findById(beer.id)).stock, 21);
-  assert.equal((await Product.findById(food.id)).stock, 0);
-  assert.equal(await Movement.countDocuments({ saleId: body._id }), 3);
+  assert.equal((await ProductModel.getById(rum.id)).stock, 2760);
+  assert.equal((await ProductModel.getById(beer.id)).stock, 21);
+  assert.equal((await ProductModel.getById(food.id)).stock, 0);
+  assert.equal(
+    await StockMovementModel.countDocuments({ saleId: body._id }),
+    3,
+  );
 });
 test("reintentar una venta no vuelve a cobrar ni descontar", async () => {
-  const before = await Product.findById(rum.id);
+  const before = await ProductModel.getById(rum.id);
   await admin
     .post("/api/admin/sales")
     .send({
@@ -97,11 +106,11 @@ test("reintentar una venta no vuelve a cobrar ni descontar", async () => {
       items: [{ productId: rum.id, serving: "shot", quantity: 1 }],
     })
     .expect(201);
-  assert.equal((await Product.findById(rum.id)).stock, before.stock);
-  assert.equal(await Sale.countDocuments({ requestId: "mixed" }), 1);
+  assert.equal((await ProductModel.getById(rum.id)).stock, before.stock);
+  assert.equal(await OrderModel.countDocuments({ requestId: "mixed" }), 1);
 });
 test("falta de stock revierte la venta completa y sus movimientos", async () => {
-  const before = (await Product.findById(rum.id)).stock;
+  const before = (await ProductModel.getById(rum.id)).stock;
   await admin
     .post("/api/admin/sales")
     .send({
@@ -112,13 +121,14 @@ test("falta de stock revierte la venta completa y sus movimientos", async () => 
       ],
     })
     .expect(409);
-  assert.equal((await Product.findById(rum.id)).stock, before);
-  assert.equal(await Sale.countDocuments({ requestId: "rollback" }), 0);
+  assert.equal((await ProductModel.getById(rum.id)).stock, before);
+  assert.equal(await OrderModel.countDocuments({ requestId: "rollback" }), 0);
 });
 test("ventas concurrentes nunca dejan saldo negativo", async () => {
-  const scarce = await Product.create({
+  const scarce = await ProductModel.save({
     name: "Último shot",
     category: "drink",
+    drinkType: "alcoholic",
     inventory: "ml",
     price: 1000,
     prices: { large: 3000, small: 2000, shot: 1000 },
@@ -133,7 +143,7 @@ test("ventas concurrentes nunca dejan saldo negativo", async () => {
     ),
   );
   assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
-  assert.equal((await Product.findById(scarce.id)).stock, 0);
+  assert.equal((await ProductModel.getById(scarce.id)).stock, 0);
 });
 test("cantidad, medida y categoría inválidas son rechazadas", async () => {
   for (const quantity of [0, -1, 0.5, "1"])
@@ -157,11 +167,17 @@ test("cantidad, medida y categoría inválidas son rechazadas", async () => {
     .expect(400);
   await admin
     .post("/api/admin/products")
-    .send({ name: "Bebida", category: "drink", inventory: "none", price: 200 })
+    .send({
+      name: "Bebida",
+      category: "drink",
+      drinkType: "alcoholic",
+      inventory: "none",
+      price: 200,
+    })
     .expect(400);
 });
 test("reposiciones y mermas registran saldo; no permiten saldo negativo", async () => {
-  const before = (await Product.findById(rum.id)).stock;
+  const before = (await ProductModel.getById(rum.id)).stock;
   await admin
     .post(`/api/admin/products/${rum.id}/stock`)
     .send({ delta: 1000, reason: "Compra de botella" })
@@ -170,7 +186,7 @@ test("reposiciones y mermas registran saldo; no permiten saldo negativo", async 
     .post(`/api/admin/products/${rum.id}/stock`)
     .send({ delta: -60, reason: "Merma" })
     .expect(200);
-  assert.equal((await Product.findById(rum.id)).stock, before + 940);
+  assert.equal((await ProductModel.getById(rum.id)).stock, before + 940);
   await admin
     .post(`/api/admin/products/${rum.id}/stock`)
     .send({ delta: -100000, reason: "Error" })
@@ -181,8 +197,8 @@ test("reposiciones y mermas registran saldo; no permiten saldo negativo", async 
     .expect(409);
 });
 test("anulación devuelve inventario una sola vez y sale del reporte", async () => {
-  const sale = await Sale.findOne({ requestId: "mixed" });
-  const before = (await Product.findById(rum.id)).stock;
+  const sale = await OrderModel.getOne({ requestId: "mixed" });
+  const before = (await ProductModel.getById(rum.id)).stock;
   await admin
     .post(`/api/admin/sales/${sale.id}/void`)
     .send({ reason: "Pedido duplicado" })
@@ -191,7 +207,7 @@ test("anulación devuelve inventario una sola vez y sale del reporte", async () 
     .post(`/api/admin/sales/${sale.id}/void`)
     .send({ reason: "Otra vez" })
     .expect(409);
-  assert.equal((await Product.findById(rum.id)).stock, before + 240);
+  assert.equal((await ProductModel.getById(rum.id)).stock, before + 240);
   const { body } = await admin.get("/api/admin/reports").expect(200);
   assert.equal(body.count, 1);
   assert.equal(body.revenue, 1000);
@@ -202,7 +218,7 @@ test("medidas configurables afectan próximas ventas y preservan las anteriores"
   const { body } = await admin.get("/api/admin/state").expect(200);
   body.settings.servings.shot = 25;
   await admin.put("/api/admin/settings").send(body.settings).expect(200);
-  const before = (await Product.findById(rum.id)).stock;
+  const before = (await ProductModel.getById(rum.id)).stock;
   await admin
     .post("/api/admin/sales")
     .send({
@@ -210,8 +226,8 @@ test("medidas configurables afectan próximas ventas y preservan las anteriores"
       items: [{ productId: rum.id, serving: "shot", quantity: 2 }],
     })
     .expect(201);
-  assert.equal((await Product.findById(rum.id)).stock, before - 50);
-  const old = await Sale.findOne({ requestId: "mixed" });
+  assert.equal((await ProductModel.getById(rum.id)).stock, before - 50);
+  const old = await OrderModel.getOne({ requestId: "mixed" });
   assert.equal(old.items[0].consumed, 180);
   assert.equal(old.items[0].unitPrice, 4500);
 });
@@ -224,10 +240,13 @@ test("ventas solo de comida se registran sin movimientos de inventario", async (
     })
     .expect(201);
   assert.equal(body.total, 13000);
-  assert.equal(await Movement.countDocuments({ saleId: body._id }), 0);
+  assert.equal(
+    await StockMovementModel.countDocuments({ saleId: body._id }),
+    0,
+  );
 });
 test("confirmaciones simultáneas de la misma orden descuentan una vez", async () => {
-  const before = (await Product.findById(rum.id)).stock;
+  const before = (await ProductModel.getById(rum.id)).stock;
   const payload = {
     requestId: "same-order-concurrent",
     items: [{ productId: rum.id, serving: "shot", quantity: 1 }],
@@ -241,7 +260,7 @@ test("confirmaciones simultáneas de la misma orden descuentan una vez", async (
     [201, 201],
   );
   assert.equal(responses[0].body._id, responses[1].body._id);
-  assert.equal((await Product.findById(rum.id)).stock, before - 25);
+  assert.equal((await ProductModel.getById(rum.id)).stock, before - 25);
 });
 test("promociones futuras, vencidas y pausadas no se publican", async () => {
   for (const [starts, ends, active] of [
@@ -282,7 +301,7 @@ test("archivado conserva historial y bloquea ventas nuevas; reportes respetan fe
     .expect(409);
   const menu = await request(app).get("/api/public").expect(200);
   assert.ok(!menu.body.products.some((p) => p._id === food.id));
-  const history = await Sale.findOne({ requestId: "food-only" });
+  const history = await OrderModel.getOne({ requestId: "food-only" });
   assert.equal(history.items[0].name, food.name);
   const { body } = await admin
     .get("/api/admin/reports?from=2000-01-01&to=2001-01-01")

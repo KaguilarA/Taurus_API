@@ -1,4 +1,4 @@
-import { Schema } from "mongoose";
+import { OwlTypes } from "owl-expressjs-utils";
 import { ModelName as PromoModelName } from "../promo/model.js";
 import { ModelName as ProductModelName } from "../product/model.js";
 
@@ -6,12 +6,12 @@ export const ModelName = "PromoProduct";
 
 const model = {
   promo: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     ref: PromoModelName,
     required: true,
   },
   products: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     ref: ProductModelName,
     required: true,
   },

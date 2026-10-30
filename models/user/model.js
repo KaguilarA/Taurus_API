@@ -1,4 +1,4 @@
-import { Schema } from "mongoose";
+import { OwlTypes } from "owl-expressjs-utils";
 import StateData from "../state/model.js";
 
 const model = {
@@ -43,7 +43,7 @@ const model = {
     required: true,
   },
   state: {
-    type: Schema.Types.ObjectId,
+    type: OwlTypes.ObjectId,
     ref: StateData.name,
     required() {
       return !this.username && !this.email;
