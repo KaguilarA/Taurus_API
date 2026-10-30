@@ -1,6 +1,6 @@
 import mongoose from "mongoose";
 import { randomBytes } from "node:crypto";
-import { Accounts, Product, Movement, Table } from "../../restaurant/models.js";
+import { Accounts, Product, Movement, Table } from "../../models/models.js";
 
 // Prices and opening quantities are editable examples, not market price claims.
 export const previewProducts = [

@@ -1,7 +1,7 @@
 import { Schema } from "mongoose";
-import BusinessData from "./../business/model.js";
-import StateData from "./../state/model.js";
-import UserData from "./../user/model.js";
+import BusinessData from "../business/model.js";
+import StateData from "../state/model.js";
+import UserData from "../user/model.js";
 
 const ownerTypes = [BusinessData.name, UserData.name];
 const model = {
@@ -40,4 +40,4 @@ const name = "Phone";
  */
 export default { model, name };
 
-
+export const ModelName = name;

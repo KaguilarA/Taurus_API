@@ -1,18 +1,45 @@
 import { Router } from "express";
-import AuthController from "../../controllers/auth/controller.js";
+import { OwlRateLimit } from "owl-expressjs-utils";
 
-/**
- * Create the authentication router.
- * @param {Object} data - Configuration data for the router.
- * @returns {import('express').Router}
- */
-export default (data) => {
+import * as Controllers from "../../controllers/auth/controller.js";
+export function registerRecovery(options = {}) {
   const router = Router();
-  const { logIn, logout, status } = AuthController(data);
 
-  router.post("/login", logIn);
-  router.post("/logout", logout);
-  router.get("/status", status);
+  const { production, origin } = options;
+  const controller = Controllers.createRecoveryController({
+    production,
+    origin,
+  });
+  router.post(
+    "/api/auth/reset/request",
+    OwlRateLimit({ windowMs: 900000, limit: 5 }),
+    controller.requestReset,
+  );
+  router.get("/api/auth/reset/status", controller.resetStatus);
+  router.post(
+    "/api/auth/reset/complete",
+    OwlRateLimit({ windowMs: 900000, limit: 10 }),
+    controller.completeReset,
+  );
 
   return router;
-};
+}
+
+import { createAuthController } from "../../controllers/auth/controller.js";
+
+export function registerAuth(options = {}) {
+  const router = Router();
+
+  const controller = createAuthController(options);
+  router.get("/api/auth/status", controller.status);
+  router.post(
+    "/api/auth/login",
+    OwlRateLimit({ windowMs: 900000, limit: 10 }),
+    controller.logIn,
+  );
+  router.post("/api/auth/logout", controller.logout);
+
+  return router;
+}
+
+export default registerAuth;

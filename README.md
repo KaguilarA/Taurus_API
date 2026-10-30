@@ -45,11 +45,15 @@ La cuenta se consulta con un identificador aleatorio de visita, no con un númer
 
 ## Arquitectura y compatibilidad
 
-El módulo activo está en `restaurant/`. OWL crea los modelos de negocio con `OwlModel`, protege contraseñas y proporciona `OwlMongoConnect`, `OwlSession`, `OwlCors`, `OwlIsAuth` y `OwlRateLimit`. Las operaciones de inventario usan esos mismos modelos con transacciones de Mongoose.
+La arquitectura definida por el proyecto es obligatoria y está documentada en `AGENTS.md`: `index.js` inicia el servidor, `app.js` ensambla middleware y `api/api.js` compone las rutas de `routes/<entidad>/routes.js`. La lógica vive en `controllers/<entidad>/controller.js` y todos los modelos se construyen una sola vez con `OwlModel` en `models/models.js`, extendiendo los esquemas originales de `models/<entidad>/model.js`.
 
-Mongoose se mantiene en la rama 8 actualizada, compatible con la dependencia de OWL, y se deduplica mediante `overrides` para compartir conexión, registro de modelos y sesiones. No actualizar a Mongoose 9 sin adaptar y verificar primero OWL. Los lockfiles se versionan.
+OWL proporciona modelos, hashing, controladores CRUD, conexión, sesiones, autenticación, CORS y límites de peticiones. Los modelos nativos creados por OWL se utilizan para transacciones, agregaciones y actualizaciones condicionales que sus helpers CRUD no expresan. Las rutas de usuario mantienen la restricción de editar únicamente la cuenta de la sesión.
 
-Se conservan los archivos anteriores de `app.js`, `index.js`, `api/`, `models/`, autenticación y permisos, incluyendo cambios que ya estaban en curso. **No se montan sus rutas incompletas en el servidor nuevo**. El módulo usa colecciones `restaurant*` independientes; no migra ni modifica automáticamente datos de los modelos antiguos. Cualquier migración de datos existentes necesita un mapeo y respaldo previo. `npm start` ejecuta `restaurant/server.js`.
+### Migración desde la implementación anterior
+
+Las colecciones paralelas `restaurant*` se copian a las entidades canónicas (`User`, `Product`, `Promo`, `Cart`, etc.) en **una sola transacción**. Se conservan IDs, hashes, timestamps, referencias, inventario y pagos. Las fuentes no se borran. Una marca persistente evita volver a copiar datos antiguos; cualquier conflicto revierte la migración completa sin sobrescribir registros.
+
+Antes de actualizar una instalación anterior, desplegá la protección de mantenimiento y activá `MAINTENANCE_MODE=true` en esa versión. Esto bloquea solicitudes de clientes mientras continúan los checks operativos. Después desplegá esta versión: al iniciar ejecuta la migración y verifica las cuentas. Comprobá la revisión y `/api/ready`, y desactivá mantenimiento. Si hay datos anteriores y no se activó mantenimiento, el arranque rechaza migrarlos automáticamente. Una instalación nueva no necesita esta migración.
 
 ## API
 

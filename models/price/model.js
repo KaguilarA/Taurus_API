@@ -1,13 +1,13 @@
 import { Schema, Types } from "mongoose";
-import { ModelName as ProductModelName } from "./../product/model.js";
-import { ModelName as PromoModelName } from "./../promo/model.js";
-import { ModelName as StateModelName } from "./../state/model.js";
+import { ModelName as ProductModelName } from "../product/model.js";
+import { ModelName as PromoModelName } from "../promo/model.js";
+import { ModelName as StateModelName } from "../state/model.js";
 
 const ownerTypes = [ProductModelName, PromoModelName];
 
 export const ModelName = "Price";
 
-export default {
+const model = {
   amount: {
     type: Types.Decimal128,
     required: true,
@@ -31,3 +31,5 @@ export default {
     required: true,
   },
 };
+
+export default { name: ModelName, model };

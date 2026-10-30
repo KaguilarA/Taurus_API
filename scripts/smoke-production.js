@@ -49,7 +49,7 @@ try {
   await new Promise((resolve) => probe.close(resolve));
   const origin = "https://production-smoke.example";
   const password = randomBytes(24).toString("hex");
-  child = spawn(process.execPath, ["restaurant/server.js"], {
+  child = spawn(process.execPath, ["index.js"], {
     cwd: runtimeDirectory,
     env: {
       ...process.env,

@@ -24,3 +24,5 @@ const model = {
 const name = "State";
 
 export default { model, name };
+
+export const ModelName = name;

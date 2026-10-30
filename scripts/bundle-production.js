@@ -11,7 +11,7 @@ import {
 import { resolve, join } from "node:path";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { loadEnvironment, projectRoot } from "../restaurant/config.js";
+import { loadEnvironment, projectRoot } from "../config/runtime.js";
 
 loadEnvironment();
 const frontend = resolve(
@@ -38,28 +38,37 @@ await mkdir(releases, { recursive: true });
 const output = await mkdtemp(join(releases, "felos-bar-"));
 const combined = process.argv.includes("--combined");
 const backend = combined ? output : join(output, "backend");
-await mkdir(join(backend, "restaurant"), { recursive: true });
-for (const entry of await readdir(resolve(projectRoot, "restaurant"))) {
-  if (
-    entry.endsWith(".js") &&
-    !entry.endsWith(".test.js") &&
-    !["preview-data.js", "seed-preview.js"].includes(entry)
-  )
-    await copyFile(
-      resolve(projectRoot, "restaurant", entry),
-      join(backend, "restaurant", entry),
-    );
-}
-await mkdir(join(backend, "models/business"), { recursive: true });
-await copyFile(resolve(projectRoot, "models/business/model.js"), join(backend, "models/business/model.js"));
+for (const directory of [
+  "api",
+  "config",
+  "controllers",
+  "db",
+  "middlewares",
+  "models",
+  "routes",
+  "services",
+  "utils",
+])
+  await cp(resolve(projectRoot, directory), join(backend, directory), {
+    recursive: true,
+    filter: (source) => !source.endsWith(".test.js") && !source.endsWith(".md"),
+  });
+for (const file of ["app.js", "index.js"])
+  await copyFile(resolve(projectRoot, file), join(backend, file));
+await mkdir(join(backend, "scripts"));
+for (const file of ["account-password.js", "healthcheck.js"])
+  await copyFile(
+    resolve(projectRoot, "scripts", file),
+    join(backend, "scripts", file),
+  );
 for (const entry of ["package.json", "package-lock.json"])
   await copyFile(resolve(projectRoot, entry), join(backend, entry));
 const runtimePackage = JSON.parse(
   await readFile(join(backend, "package.json"), "utf8"),
 );
 runtimePackage.scripts = {
-  start: "node restaurant/server.js",
-  "account:password": "node restaurant/account-password.js",
+  start: "node index.js",
+  "account:password": "node scripts/account-password.js",
 };
 await writeFile(
   join(backend, "package.json"),

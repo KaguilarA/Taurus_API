@@ -1,9 +1,9 @@
 import { Schema } from "mongoose";
-import { ModelName as ProductModelName } from "./../product/model.js";
+import { ModelName as ProductModelName } from "../product/model.js";
 
 export const ModelName = "ProductStock";
 
-export default {
+const model = {
   stock: {
     type: Number,
     required: true,
@@ -17,3 +17,5 @@ export default {
     required: true,
   },
 };
+
+export default { name: ModelName, model };

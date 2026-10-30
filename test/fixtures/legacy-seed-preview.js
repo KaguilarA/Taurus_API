@@ -1,7 +1,7 @@
-import { loadEnvironment } from "../../restaurant/config.js";
+import { loadEnvironment } from "../../config/runtime.js";
 import mongoose from "mongoose";
 import { OwlMongoConnect } from "owl-expressjs-utils";
-import { startLocalMongo } from "../../restaurant/local-mongo.js";
+import { startLocalMongo } from "../../db/local-mongo.js";
 import { seed } from "./seed.js";
 import { seedPreviewData } from "./preview-data.js";
 

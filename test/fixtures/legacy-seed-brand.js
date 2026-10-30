@@ -1,4 +1,4 @@
-import { loadEnvironment } from "../../restaurant/config.js";
+import { loadEnvironment } from "../../config/runtime.js";
 import mongoose from "mongoose";
 import { OwlMongoConnect } from "owl-expressjs-utils";
 import { seed } from "./seed.js";

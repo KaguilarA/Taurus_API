@@ -17,4 +17,6 @@ const model = {
 };
 const name = "Permission";
 
-export default { model, name }
+export default { model, name };
+
+export const ModelName = name;

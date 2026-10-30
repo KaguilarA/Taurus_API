@@ -1,8 +1,8 @@
 import { Schema } from "mongoose";
-import { ModelName as CartModelName } from "./../cart/model.js";
-import { ModelName as ProductModelName } from "./../product/model.js";
-import { ModelName as PromoModelName } from "./../promo/model.js";
-import { ModelName as PriceModelName } from "./../price/model.js";
+import { ModelName as CartModelName } from "../cart/model.js";
+import { ModelName as ProductModelName } from "../product/model.js";
+import { ModelName as PromoModelName } from "../promo/model.js";
+import { ModelName as PriceModelName } from "../price/model.js";
 
 const ownerTypes = [ProductModelName, PromoModelName];
 
@@ -42,3 +42,5 @@ const model = {
 const name = "CartItem";
 
 export default { model, name };
+
+export const ModelName = name;

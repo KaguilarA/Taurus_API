@@ -1,9 +1,9 @@
 import { Schema } from "mongoose";
-import BusinessData from "./../business/model.js";
-import PromoData from "./../promo/model.js";
-import ProductData from "./../product/model.js";
-import StateData from "./../state/model.js";
-import UserData from "./../user/model.js";
+import BusinessData from "../business/model.js";
+import PromoData from "../promo/model.js";
+import ProductData from "../product/model.js";
+import StateData from "../state/model.js";
+import UserData from "../user/model.js";
 
 const ownerTypes = [
   ProductData.name,
@@ -44,3 +44,5 @@ const model = {
 const name = "Image";
 
 export default { model, name };
+
+export const ModelName = name;

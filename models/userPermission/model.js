@@ -1,6 +1,6 @@
 import { Schema } from "mongoose";
-import UserData from "./../user/model.js";
-import PermissionData from "./../permission/model.js";
+import UserData from "../user/model.js";
+import PermissionData from "../permission/model.js";
 
 const model = {
   user: {
@@ -17,3 +17,4 @@ const model = {
 const name = "UserPermission";
 
 export default { model, name };
+export const ModelName = name;

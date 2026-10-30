@@ -40,3 +40,5 @@ const model = {
 const name = "Business";
 
 export default { model, name };
+
+export const ModelName = name;

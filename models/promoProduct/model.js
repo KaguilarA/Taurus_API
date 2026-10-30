@@ -1,10 +1,10 @@
 import { Schema } from "mongoose";
-import { ModelName as PromoModelName } from "./../promo/model.js";
-import { ModelName as ProductModelName } from "./../product/model.js";
+import { ModelName as PromoModelName } from "../promo/model.js";
+import { ModelName as ProductModelName } from "../product/model.js";
 
 export const ModelName = "PromoProduct";
 
-export default {
+const model = {
   promo: {
     type: Schema.Types.ObjectId,
     ref: PromoModelName,
@@ -25,3 +25,5 @@ export default {
     },
   },
 };
+
+export default { name: ModelName, model };

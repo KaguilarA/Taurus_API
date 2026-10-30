@@ -1,5 +1,5 @@
 import { OwlMongoConnect } from "owl-expressjs-utils";
-import { loadEnvironment, runtimeConfig } from "../restaurant/config.js";
+import { loadEnvironment, runtimeConfig } from "../config/runtime.js";
 
 export default async () => {
   loadEnvironment();

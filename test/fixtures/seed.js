@@ -4,9 +4,9 @@ import {
   Product,
   Promotion,
   Movement,
-} from "../../restaurant/models.js";
+} from "../../models/models.js";
 import mongoose from "mongoose";
-import { usernameInput } from "../../restaurant/domain.js";
+import { usernameInput } from "../../services/validation.js";
 
 export async function seed({ email, username, password, demo = false }) {
   if (!(await Settings.getOne({ key: "main" })))
@@ -38,13 +38,14 @@ export async function seed({ email, username, password, demo = false }) {
     if (password.length < 8)
       throw new Error("ADMIN_PASSWORD requiere al menos 8 caracteres.");
     await Accounts.save({
+      role: "admin",
       email: email.toLowerCase(),
       password,
       username: username ? usernameInput(username) : undefined,
     });
   }
   // Give existing email-based accounts a username without changing their password.
-  const accountModel = mongoose.model("RestaurantAccount");
+  const accountModel = mongoose.model("User");
   for (const account of await accountModel
     .find({ username: { $exists: false } })
     .sort({ createdAt: 1 })) {

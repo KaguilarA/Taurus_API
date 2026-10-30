@@ -1,6 +1,6 @@
 export const ModelName = "ProductType";
 
-export default {
+const model = {
   name: {
     type: String,
     required: true,
@@ -13,3 +13,5 @@ export default {
     trim: true,
   },
 };
+
+export default { name: ModelName, model };

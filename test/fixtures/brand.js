@@ -1,4 +1,4 @@
-import { Settings, Event } from "../../restaurant/models.js";
+import { Settings, Event } from "../../models/models.js";
 
 export async function seedFelosBrand({ includeSamples = true } = {}) {
   const settings = await Settings.getOne({ key: "main" });

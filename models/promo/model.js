@@ -1,11 +1,22 @@
 import { Schema } from "mongoose";
-import { ModelName as StateModelName } from "./../state/model.js";
+import { ModelName as StateModelName } from "../state/model.js";
 
 export const ModelName = "Promo";
 
-export default {
+const model = {
+  ...{
+    title: String,
+    image: String,
+    starts: Date,
+    ends: Date,
+    active: { type: Boolean, default: true },
+  },
+
   name: {
     type: String,
+    default() {
+      return this.title;
+    },
     required: true,
     trim: true,
     maxlength: [150, "Promo name cannot exceed 150 characters"],
@@ -22,6 +33,9 @@ export default {
   state: {
     type: Schema.Types.ObjectId,
     ref: StateModelName,
-    required: true,
-  }
+    required() {
+      return !this.title;
+    },
+  },
 };
+export default { name: ModelName, model };
