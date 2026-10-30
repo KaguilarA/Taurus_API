@@ -91,5 +91,10 @@ export const SetupLock = mongoose.model("SetupLock");
 export const PasswordReset = mongoose.model("PasswordReset");
 Bill.schema.index(
   { tableId: 1 },
-  { unique: true, partialFilterExpression: { status: "open", tableId: { $type: "string" } } },
+  {
+    unique: true,
+    partialFilterExpression: { status: "open", tableId: { $type: "string" } },
+  },
 );
+
+export const UserModelName = UserData.name;

@@ -1,7 +1,7 @@
 import { migrateLegacyCollections } from "./db/migrate-legacy.js";
 import { createServer } from "node:http";
 import mongoose from "mongoose";
-import { OwlMongoConnect } from "owl-expressjs-utils";
+import connectDatabase from "./db/db.js";
 import { createApp } from "./app.js";
 import { seed } from "./db/migrations.js";
 import { startLocalMongo } from "./db/local-mongo.js";
@@ -25,10 +25,7 @@ try {
       "Usá una base configurada en el entorno para iniciar la aplicación.",
     );
   if (process.env.LOCAL_MONGO_AUTOSTART === "true") await startLocalMongo();
-  await OwlMongoConnect(
-    uri,
-    process.env.DB_NAME && !config.demo ? { dbName: config.dbName } : {},
-  );
+  await connectDatabase(config);
   const hello = await mongoose.connection.db.admin().command({ hello: 1 });
   if (!hello.setName && hello.msg !== "isdbgrid")
     throw new ConfigurationError(
