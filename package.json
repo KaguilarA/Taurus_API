@@ -11,7 +11,7 @@
     "dev": "node --watch index.js",
     "db:start": "node db/local-mongo.js",
     "db:stop": "node db/local-mongo.js --stop",
-    "test": "node --test test/integration/*.test.js scripts/*.test.mjs"
+    "test": "node --test --test-concurrency=2 test/integration/*.test.js scripts/*.test.mjs"
   },
   "engines": {
     "node": ">=24.0.0",

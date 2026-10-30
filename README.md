@@ -173,3 +173,11 @@ Todos los roles pueden editar su nombre y username en **Mi perfil**. El servidor
 En el login, **Olvidé mi contraseña** crea una solicitud temporal de 30 minutos asociada a ese navegador mediante la sesión HttpOnly. Un administrador consulta **Equipo y roles → Recuperación de contraseñas**, verifica la identidad de la persona y aprueba o rechaza. La persona consulta la aprobación en el mismo navegador y elige su nueva clave. La aprobación es de un solo uso y se consume dentro de la misma transacción que cambia la contraseña. No se envían claves temporales ni se habilitan enlaces públicos de cambio de contraseña. Las solicitudes de usuarios inexistentes reciben la misma respuesta pública. Si el único administrador perdió el acceso, el operador conserva el comando `account:password`; la recuperación pública no evita la aprobación.
 
 Las bebidas admiten `drinkType: alcoholic | non_alcoholic`. Los productos existentes sin clasificación se conservan sin adivinar su contenido de alcohol y pueden clasificarse al editarlos.
+
+### Carta pública: búsqueda y paginación
+
+`GET /api/public/menu` recibe `q`, `category` (`all|food|drink|snack`), `drinkType` (`all|alcoholic|non_alcoholic`), `page` y `pageSize` (1–24; por defecto 9). La búsqueda literal consulta nombre y descripción, sin distinguir mayúsculas ni acentos. Los filtros y la paginación se ejecutan en el backend mediante OWL; el orden estable usa nombre e ID. La respuesta contiene `items`, `total`, `page`, `pageSize` y `pageCount`. Una página fuera de rango se ajusta a la última disponible.
+
+`GET /api/public/menu/:id` carga los detalles actuales de un producto activo. `GET /api/public` conserva la configuración y agenda, y entrega la primera página en `menu`; el campo de compatibilidad `products` contiene únicamente esos mismos elementos, no todo el catálogo.
+
+El administrador configura `Business.showMenuPrices` desde Personalización. Por defecto los precios se muestran. La preferencia controla su presentación en la carta y el modal; los pedidos, cuentas y pagos conservan su desglose y sus importes. No cambia los precios almacenados.

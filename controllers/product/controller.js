@@ -1,3 +1,4 @@
+import { getMenuPage, getMenuProduct } from "../../services/menu.js";
 import { OwlController, OwlTransaction } from "owl-expressjs-utils";
 import { ProductModel, StockMovementModel } from "../../models/models.js";
 
@@ -68,3 +69,10 @@ export function createProductController() {
 }
 
 export default createProductController;
+
+export function createPublicProductController() {
+  const list = async (req, res) => res.json(await getMenuPage(req.query));
+  const detail = async (req, res) =>
+    res.json(await getMenuProduct(req.params.id));
+  return { list, detail };
+}

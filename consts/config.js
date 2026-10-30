@@ -10,11 +10,15 @@ import { registerProfile, registerAccounts } from "../routes/user/routes.js";
 import { registerTables } from "../routes/table/routes.js";
 import { registerImageUploads } from "../routes/image/routes.js";
 import { registerBusiness } from "../routes/business/routes.js";
-import { registerProduct } from "../routes/product/routes.js";
+import {
+  registerProduct,
+  publicProductRoutes,
+} from "../routes/product/routes.js";
 import { registerEvent } from "../routes/event/routes.js";
 import { registerPromo } from "../routes/promo/routes.js";
 import { UserModel, UserModelName, EmailModel } from "../models/models.js";
 export const publicRoutes = [
+  { url: "/", config: { id: "PublicProduct" }, router: publicProductRoutes },
   { url: "/", config: { id: "Setup" }, router: registerInitialSetup },
   { url: "/", config: { id: "Recovery" }, router: registerRecovery },
   { url: "/", config: { id: "Public" }, router: registerPublic },

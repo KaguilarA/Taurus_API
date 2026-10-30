@@ -17,6 +17,7 @@ const model = {
   hours: String,
   phone: String,
   currency: String,
+  showMenuPrices: { type: Boolean, default: true },
   accent: String,
   servings: { large: Number, small: Number, shot: Number },
   instagramUrl: {

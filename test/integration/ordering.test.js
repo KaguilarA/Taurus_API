@@ -386,10 +386,10 @@ test("usuario y contraseña permiten entrar sin correo y los datos de prueba son
   const accountList = await viewer.get("/api/admin/accounts").expect(200);
   assert.ok(accountList.body.some((account) => account.username === "admin"));
   assert.ok(accountList.body.every((account) => !account.password));
-  const menu = await request(app).get("/api/public").expect(200);
+  const menu = await request(app).get("/api/public/menu?pageSize=24").expect(200);
   for (const product of previewProducts)
     assert.ok(
-      menu.body.products.some(
+      menu.body.items.some(
         (item) =>
           item.name === product.name && item.category === product.category,
       ),

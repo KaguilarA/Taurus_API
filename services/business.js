@@ -11,7 +11,12 @@ export function businessInput(b = {}) {
   } catch {
     throw new Problem("Moneda inválida.");
   }
+  if (b.showMenuPrices !== undefined && typeof b.showMenuPrices !== "boolean")
+    throw new Problem("La visibilidad de precios debe ser un valor booleano.");
   return {
+    ...(b.showMenuPrices === undefined
+      ? {}
+      : { showMenuPrices: b.showMenuPrices }),
     name: text(b.name, "Nombre del negocio", 150, true),
     subtitle: text(b.subtitle ?? "", "Tipo de negocio", 150),
     tagline: text(b.tagline ?? "", "Eslogan", 200),
