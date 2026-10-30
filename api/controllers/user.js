@@ -1,7 +1,15 @@
 import BaseController from '../../utils/baseController.js';
 import exceptions from "../../utils/exceptions.js";
+import { OwlModel } from "owl-expressjs-utils";
 
 export default class extends BaseController {
+  constructor(model) {
+    super(model);
+    this.passwordModel = model.compareHash ? model : OwlModel(
+      model.modelName, model.schema.obj, [], ["password"],
+    );
+  }
+
 
   /**
    * Activates a user.
@@ -154,14 +162,17 @@ export default class extends BaseController {
    */
   validatePassword = async (req, res) => {
     try {
-      const { username, password } = req.body;
-      console.log('Validating password for user:', username);
-      // const isValid = await this.model.validatePassword(username, password);
-      // res.status(200).json(isValid);
+      const { userId, id, password } = req.body;
+      const user = await this.model.findById(userId || id).select("+password");
 
-      res.setHeader('Set-Cookie', 'loggedIn=true');
+      if (!user || !password || !(await this.passwordModel.compareHash(String(user._id), "password", password))) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      req.session.userId = user._id.toString();
+      res.status(200).json({ authenticated: true, userId: user._id });
     } catch (err) {
-      res.status(404).json({ message: err.message });
+      res.status(401).json({ message: "Invalid credentials" });
     }
   }
 }

@@ -5,17 +5,20 @@ import PermissionRoutes from "./routes/permission.js";
 import ProductRoutes from "./routes/product.js";
 import UserRoutes from "./routes/user.js";
 import StateRoutes from "./routes/state.js";
+import UserPermissionRoutes from "./routes/userPermission.js";
 
 
 export default ({
-  businessModel,
+
   cartModel,
   permissionModel,
   productModel,
   productTypeModel,
-  promoModel,
+
   statesModel,
   userModel,
+  userPermissionModel,
+  auditLogModel,
 }) => {
   const router = express.Router();
 
@@ -48,6 +51,15 @@ export default ({
    * @description Routes for user-related operations
    */
   router.use("/user", UserRoutes(userModel));
+  router.use(
+    "/user",
+    UserPermissionRoutes({
+      userModel,
+      permissionModel,
+      userPermissionModel,
+      auditLogModel,
+    })
+  );
 
   return router;
 };

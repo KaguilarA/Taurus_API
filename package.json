@@ -1,12 +1,17 @@
 {
   "name": "Taurus-API",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "restaurant/server.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node --watch index.js",
-    "start": "node index.js"
+    "smoke:production": "node scripts/smoke-production.js",
+    "bundle:production": "node scripts/bundle-production.js",
+    "account:password": "node restaurant/account-password.js",
+    "start": "node restaurant/server.js",
+    "dev": "node --watch restaurant/server.js",
+    "db:start": "node restaurant/local-mongo.js",
+    "db:stop": "node restaurant/local-mongo.js --stop",
+    "test": "node --test restaurant/*.test.js scripts/*.test.mjs"
   },
   "engines": {
     "node": ">=24.0.0",
@@ -22,20 +27,22 @@
   "private": true,
   "description": "API to manage the Taurus project",
   "dependencies": {
-    "bcrypt": "^6.0.0",
-    "body-parser": "^1.20.3",
-    "cloudinary": "^2.5.1",
-    "connect-mongodb-session": "^5.0.0",
-    "cors": "^2.8.5",
-    "express": "^4.21.1",
-    "express-mysql-session": "^3.0.3",
-    "express-session": "^1.18.2",
-    "mongoose": "^8.14.0",
-    "morgan": "^1.10.0",
-    "mysql2": "^3.11.4",
-    "nodemailer": "^6.9.16",
-    "nodemailer-sendgrid-transport": "^0.2.0",
-    "owl-expressjs-utils": "^1.0.2",
-    "pug": "^3.0.3"
+    "cloudinary": "^2.11.0",
+    "express": "^5.3.0",
+    "helmet": "^8.3.0",
+    "mongoose": "^8.24.7",
+    "multer": "^2.5.0",
+    "owl-expressjs-utils": "^1.0.3",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.4"
+  },
+  "devDependencies": {
+    "express-session": "^1.19.0",
+    "mongodb-memory-server": "^11.3.0",
+    "socket.io-client": "^4.8.4",
+    "supertest": "^7.3.1"
+  },
+  "overrides": {
+    "mongoose": "$mongoose"
   }
 }

@@ -27,6 +27,6 @@ const model = {
 
 const name = "User";
 
-const encryptedFields = ["password"];
+const hashedFields = ["password"];
 
-export default { encryptedFields, model, name };
+export default { hashedFields, model, name };

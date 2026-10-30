@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: felos-bar
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev --ignore-scripts
+    startCommand: npm start
+    healthCheckPath: /api/ready
+    autoDeployTrigger: off
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      - key: TRUST_PROXY
+        value: "1"
+      - key: FRONTEND_DIST
+        value: ./web
+      - key: LOCAL_MONGO_AUTOSTART
+        value: "false"
+      - key: DB_NAME
+        sync: false
+      - key: DB_HOST
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: CLOUDINARY_URL
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        sync: false

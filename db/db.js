@@ -1,20 +1,8 @@
-import mongoose from "mongoose";
+import { OwlMongoConnect } from "owl-expressjs-utils";
+import { loadEnvironment, runtimeConfig } from "../restaurant/config.js";
 
-process.loadEnvFile();
-
-const mongodburl = process.env.DB_HOST;
-
-/**
- * Connect to MongoDB
- * @returns {Promise<void>}
- * @throws {Error} If the connection fails
- */
 export default async () => {
-  try {
-    await mongoose.connect(mongodburl);
-    console.log("MongoDB connected successfully");
-  } catch (error) {
-    console.error("MongoDB connection failed:", error);
-    process.exit(1);
-  }
-}
+  loadEnvironment();
+  const config = runtimeConfig(process.env);
+  return OwlMongoConnect(config.uri, { dbName: config.dbName });
+};

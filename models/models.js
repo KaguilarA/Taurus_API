@@ -1,20 +1,20 @@
 import { OwlModel } from "owl-expressjs-utils";
-import ActionLogData from "./actionLog/model";
-import BusinessData from "./business/model";
-import CartData from "./cart/model";
-import CartItemData from "./cartItem/model";
-import EmailData from "./email/model";
-import ImageData from "./image/model";
-import PermissionData from "./permission/model";
-import PhoneData from "./phone/model";
-import PromoData from "./promo/model";
-import PromoProductData from "./promoProduct/model";
-import ProductData from "./product/model";
-import ProductStockData from "./productStock/model";
-import ProductTypeData from "./productType/model";
-import StateData from "./state/model";
-import UserData from "./user/model";
-import UserPermissionData from "./userPermission/model";
+import ActionLogData from "./actionLog/model.js";
+import BusinessData from "./business/model.js";
+import CartData from "./cart/model.js";
+import CartItemData from "./cartItem/model.js";
+import EmailData from "./email/model.js";
+import ImageData from "./image/model.js";
+import PermissionData from "./permission/model.js";
+import PhoneData from "./phone/model.js";
+import PromoData from "./promo/model.js";
+import PromoProductData from "./promoProduct/model.js";
+import ProductData from "./product/model.js";
+import ProductStockData from "./productStock/model.js";
+import ProductTypeData from "./productType/model.js";
+import StateData from "./state/model.js";
+import UserData from "./user/model.js";
+import UserPermissionData from "./userPermission/model.js";
 
 export const ActionLogModel = OwlModel(ActionLogData.name, ActionLogData.model);
 export const BusinessModel = OwlModel(BusinessData.name, BusinessData.model);
@@ -36,7 +36,7 @@ export const ProductStockModel = OwlModel(
 );
 export const ProductTypeModel = OwlModel(ProductTypeData.name, ProductTypeData.model);
 export const StateModel = OwlModel(StateData.name, StateData.model);
-export const UserModel = OwlModel(UserData.name, UserData.model, UserData.encryptedFields);
+export const UserModel = OwlModel(UserData.name, UserData.model, [], UserData.hashedFields);
 export const UserPermissionModel = OwlModel(
   UserPermissionData.name,
   UserPermissionData.model,
