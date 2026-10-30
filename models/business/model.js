@@ -1,6 +1,5 @@
-export const ModelName = "Business";
-
-export default {
+const model = {
+  key: { type: String, unique: true, sparse: true },
   name: {
     type: String,
     required: true,
@@ -10,6 +9,16 @@ export default {
     type: String,
     trim: true,
   },
+  subtitle: String,
+  tagline: String,
+  heroImage: String,
+  logoImage: String,
+  address: String,
+  hours: String,
+  phone: String,
+  currency: String,
+  accent: String,
+  servings: { large: Number, small: Number, shot: Number },
   instagramUrl: {
     type: String,
     trim: true,
@@ -27,3 +36,7 @@ export default {
     trim: true,
   },
 };
+
+const name = "Business";
+
+export default { model, name };
