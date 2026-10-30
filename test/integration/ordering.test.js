@@ -560,6 +560,9 @@ test("pedidos mixtos avanzan por línea sin retrasar bebidas ni permitir servir 
     })
     .expect(201);
   const id = placed.body._id;
+  const originalLineIds = (await OrderModel.getById(id)).items.map((item) =>
+    String(item._id),
+  );
   const bill = await CartModel.getOne({ token: guest.body.token });
   assert.deepEqual(
     placed.body.items.map((item) => item.fulfillmentStatus),
@@ -596,6 +599,10 @@ test("pedidos mixtos avanzan por línea sin retrasar bebidas ni permitir servir 
     .patch(`/api/admin/orders/${id}`)
     .send({ itemIndex: 0, status: "delivered" })
     .expect(200);
+  assert.deepEqual(
+    (await OrderModel.getById(id)).items.map((item) => String(item._id)),
+    originalLineIds,
+  );
   await waiter
     .post(`/api/admin/bills/${bill.id}/pay`)
     .send({ method: "cash" })
