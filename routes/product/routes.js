@@ -1,5 +1,8 @@
 import { Router } from "express";
-import { createProductController } from "../../controllers/product/controller.js";
+import {
+  createProductController,
+  createPublicProductController,
+} from "../../controllers/product/controller.js";
 
 export function registerProduct(options = {}) {
   const router = Router();
@@ -13,3 +16,11 @@ export function registerProduct(options = {}) {
 }
 
 export default registerProduct;
+
+export function publicProductRoutes() {
+  const router = Router();
+  const controller = createPublicProductController();
+  router.get("/api/public/menu", controller.list);
+  router.get("/api/public/menu/:id", controller.detail);
+  return router;
+}

@@ -1,3 +1,4 @@
+import { getMenuPage } from "../../services/menu.js";
 import { OwlMongoStatus, OwlMongoCommand } from "owl-expressjs-utils";
 import {
   BusinessModel,
@@ -29,13 +30,11 @@ export function createPublicController({
   };
   const menu = async (req, res) => {
     const now = new Date();
-    const products = await ProductModel.getByCoincidence(
-      { active: true },
-      { select: "-stock -minimum -__v", lean: true },
-    );
+    const menu = await getMenuPage(req.query);
     res.json({
       settings: await BusinessModel.getOne({ key: "main" }),
-      products,
+      products: menu.items,
+      menu,
       promotions: await PromoModel.getByCoincidence(
         {
           active: true,
