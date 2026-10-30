@@ -104,7 +104,10 @@ test("roles se validan en el servidor y no exponen usuarios ni inventario", asyn
 
 test("QR identifica posición y escaneos simultáneos comparten una sola cuenta", async () => {
   const qr = await admin.get("/api/admin/tables").expect(200);
-  assert.equal(qr.body[0].url, `http://localhost:4200/?mesa=${table.token}`);
+  assert.equal(
+    qr.body[0].url,
+    `http://localhost:4200/cuenta?mesa=${table.token}`,
+  );
   assert.ok(qr.body[0].qr.startsWith("data:image/png;base64,"));
   await request(app)
     .post("/api/public/tables/desconocido/join")
@@ -181,7 +184,7 @@ test("pedido sin stock revierte cuenta, líneas y movimientos", async () => {
   assert.equal(await OrderModel.countDocuments({ billId }), 1);
 });
 
-test("cocina prepara, mesero entrega y no se puede cobrar antes de entregar", async () => {
+test("bebidas y snacks se sirven directamente y cocina no modifica sus estados", async () => {
   const order = await OrderModel.getOne({ billId });
   await waiter
     .post(`/api/admin/bills/${billId}/pay`)
@@ -195,22 +198,17 @@ test("cocina prepara, mesero entrega y no se puede cobrar antes de entregar", as
     .patch(`/api/admin/orders/${order.id}`)
     .send({ status: "preparing" })
     .expect(403);
-  await kitchen
-    .patch(`/api/admin/orders/${order.id}`)
-    .send({ status: "ready" })
-    .expect(409);
-  await kitchen
-    .patch(`/api/admin/orders/${order.id}`)
-    .send({ status: "preparing" })
-    .expect(200);
+  for (const status of ["preparing", "ready"])
+    await kitchen
+      .patch(`/api/admin/orders/${order.id}`)
+      .send({ status })
+      .expect(409);
   await kitchen
     .patch(`/api/admin/orders/${order.id}`)
     .send({ status: "delivered" })
     .expect(403);
-  await kitchen
-    .patch(`/api/admin/orders/${order.id}`)
-    .send({ status: "ready" })
-    .expect(200);
+  const kitchenState = await kitchen.get("/api/admin/service").expect(200);
+  assert.equal(kitchenState.body.orders.length, 0);
   await waiter
     .patch(`/api/admin/orders/${order.id}`)
     .send({ status: "delivered" })
@@ -218,6 +216,9 @@ test("cocina prepara, mesero entrega y no se puede cobrar antes de entregar", as
   const saved = await OrderModel.getById(order.id);
   assert.ok(saved.deliveredAt);
   assert.ok(saved.deliveredBy);
+  assert.ok(
+    saved.items.every((item) => item.fulfillmentStatus === "delivered"),
+  );
 });
 
 test("cobros simultáneos son idempotentes, registran SIMPE y reportan snacks", async () => {
@@ -330,7 +331,7 @@ test("pedido y pago concurrentes no cierran una cuenta con consumos sin entregar
       items: [{ productId: snack._id, quantity: 1 }],
     })
     .expect(201);
-  for (const status of ["preparing", "ready", "delivered"])
+  for (const status of ["delivered"])
     await admin
       .patch(`/api/admin/orders/${created.body._id}`)
       .send({ status })
@@ -386,7 +387,9 @@ test("usuario y contraseña permiten entrar sin correo y los datos de prueba son
   const accountList = await viewer.get("/api/admin/accounts").expect(200);
   assert.ok(accountList.body.some((account) => account.username === "admin"));
   assert.ok(accountList.body.every((account) => !account.password));
-  const menu = await request(app).get("/api/public/menu?pageSize=24").expect(200);
+  const menu = await request(app)
+    .get("/api/public/menu?pageSize=24")
+    .expect(200);
   for (const product of previewProducts)
     assert.ok(
       menu.body.items.some(
@@ -527,4 +530,109 @@ test("branding de Felos y eventos de muestra conservan precios e inventario al v
   const saved = await ProductModel.getById(imperial.id);
   assert.equal(saved.stock, imperial.stock);
   assert.equal(saved.price, imperial.price);
+});
+
+test("pedidos mixtos avanzan por línea sin retrasar bebidas ni permitir servir comida antes de tiempo", async () => {
+  const food = await admin
+    .post("/api/admin/products")
+    .send({
+      name: "Comida de prueba",
+      category: "food",
+      inventory: "none",
+      price: 3000,
+    })
+    .expect(201);
+  const table = await admin
+    .post("/api/admin/tables")
+    .send({ name: "Mesa Mixta" })
+    .expect(201);
+  const guest = await request(app)
+    .post(`/api/public/tables/${table.body.token}/join`)
+    .expect(200);
+  const placed = await request(app)
+    .post(`/api/public/bills/${guest.body.token}/orders`)
+    .send({
+      requestId: "mixed-lines",
+      items: [
+        { productId: food.body._id, quantity: 1 },
+        { productId: snack._id, quantity: 1 },
+      ],
+    })
+    .expect(201);
+  const id = placed.body._id;
+  const bill = await CartModel.getOne({ token: guest.body.token });
+  assert.deepEqual(
+    placed.body.items.map((item) => item.fulfillmentStatus),
+    ["preparing", "pending"],
+  );
+  await waiter
+    .patch(`/api/admin/orders/${id}`)
+    .send({ itemIndex: 0, status: "delivered" })
+    .expect(409);
+  await kitchen
+    .patch(`/api/admin/orders/${id}`)
+    .send({ itemIndex: 1, status: "ready" })
+    .expect(409);
+  await waiter
+    .patch(`/api/admin/orders/${id}`)
+    .send({ itemIndex: 1, status: "delivered" })
+    .expect(200);
+  await waiter
+    .post(`/api/admin/bills/${bill.id}/pay`)
+    .send({ method: "cash" })
+    .expect(409);
+  await kitchen
+    .patch(`/api/admin/orders/${id}`)
+    .send({ itemIndex: 0, status: "ready" })
+    .expect(200);
+  const ready = await request(app)
+    .get(`/api/public/bills/${guest.body.token}`)
+    .expect(200);
+  assert.deepEqual(
+    ready.body.orders[0].items.map((item) => item.fulfillmentStatus),
+    ["ready", "delivered"],
+  );
+  await waiter
+    .patch(`/api/admin/orders/${id}`)
+    .send({ itemIndex: 0, status: "delivered" })
+    .expect(200);
+  await waiter
+    .post(`/api/admin/bills/${bill.id}/pay`)
+    .send({ method: "cash" })
+    .expect(200);
+});
+
+test("búsqueda pública de cuentas abiertas es limitada, literal y no devuelve tokens hasta elegir una cuenta", async () => {
+  const table = await admin
+    .post("/api/admin/tables")
+    .send({ name: "Mesa Ámbar" })
+    .expect(201);
+  const guest = await request(app)
+    .post(`/api/public/tables/${table.body.token}/join`)
+    .expect(200);
+  const result = await request(app)
+    .get("/api/public/accounts?q=ambar")
+    .expect(200);
+  assert.equal(result.body.length, 1);
+  assert.equal(result.body[0].label, "Mesa Ámbar");
+  assert.equal(result.body[0].token, undefined);
+  assert.equal(result.body[0].total, undefined);
+  const selected = await request(app)
+    .get(`/api/public/accounts/${result.body[0]._id}`)
+    .expect(200);
+  assert.equal(selected.body.token, guest.body.token);
+  assert.deepEqual(
+    (await request(app).get("/api/public/accounts?q=.*").expect(200)).body,
+    [],
+  );
+  await request(app).get("/api/public/accounts?q=a").expect(400);
+  await request(app).get("/api/public/accounts?q[x]=bad").expect(400);
+  await CartModel.update(result.body[0]._id, { $set: { status: "paid" } });
+  assert.deepEqual(
+    (await request(app).get("/api/public/accounts?q=ambar").expect(200)).body,
+    [],
+  );
+  await request(app)
+    .get(`/api/public/accounts/${result.body[0]._id}`)
+    .expect(404);
 });

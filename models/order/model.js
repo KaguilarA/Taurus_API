@@ -18,6 +18,10 @@ const model = {
       productId: String,
       name: String,
       category: String,
+      fulfillmentStatus: {
+        type: String,
+        enum: ["pending", "preparing", "ready", "delivered"],
+      },
       serving: String,
       quantity: Number,
       unitPrice: Number,

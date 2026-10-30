@@ -48,6 +48,13 @@ before(async () => {
     origin,
     uri,
     secret,
+    uploadImage: async (file, purpose) => {
+      assert.equal(file.mimetype, "image/png");
+      assert.equal(purpose, "branding");
+      return {
+        url: "https://res.cloudinary.com/fixture/image/upload/verified.png",
+      };
+    },
     frontendDist: directory,
     production: true,
     trustProxy: 1,
@@ -113,6 +120,24 @@ test("la sesión real de OWL emite cookie Secure detrás del proxy HTTPS", async
     .send({ username: "owner", password })
     .expect(403);
 });
+test("la subida multipart atraviesa el router real y la sesión OWL detrás de HTTPS", async () => {
+  const png = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",
+    "base64",
+  );
+  const response = await request(app)
+    .post("/api/admin/images?purpose=branding")
+    .set("Origin", origin)
+    .set("X-Forwarded-Proto", "https")
+    .set("Cookie", cookie)
+    .attach("image", png, { filename: "hero.png", contentType: "image/png" })
+    .expect(201);
+  assert.equal(
+    response.body.url,
+    "https://res.cloudinary.com/fixture/image/upload/verified.png",
+  );
+});
+
 test("readiness detecta drenaje y los eventos de muestra no se anuncian en producción", async () => {
   await request(app).get("/api/ready").expect(200);
   app.locals.draining = true;

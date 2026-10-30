@@ -109,6 +109,26 @@ test("la configuración proviene del entorno y los errores no exponen secretos",
   });
   assert.equal(result.cloud_name, "sample");
   assert.equal(result.api_secret, "test-secret");
+  const explicit = cloudinaryOptions({
+    CLOUDINARY_CLOUD_NAME: " current ",
+    CLOUDINARY_API_KEY: " current-key ",
+    CLOUDINARY_API_SECRET: " current-secret ",
+    CLOUDINARY_FOLDER: " images ",
+    CLOUDINARY_URL: "cloudinary://old-key:old-secret@old-cloud",
+  });
+  assert.equal(explicit.cloud_name, "current");
+  assert.equal(explicit.api_key, "current-key");
+  assert.equal(explicit.api_secret, "current-secret");
+  assert.equal(explicit.folder, "images");
+  assert.throws(
+    () =>
+      cloudinaryOptions({
+        CLOUDINARY_CLOUD_NAME: "partial",
+        CLOUDINARY_URL: "cloudinary://old-key:old-secret@old-cloud",
+        CLOUDINARY_FOLDER: "images",
+      }),
+    (error) => error.status === 503,
+  );
   for (const env of [
     {},
     { CLOUDINARY_URL: "https://key:secret@invalid" },

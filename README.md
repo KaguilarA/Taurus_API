@@ -181,3 +181,11 @@ Las bebidas admiten `drinkType: alcoholic | non_alcoholic`. Los productos existe
 `GET /api/public/menu/:id` carga los detalles actuales de un producto activo. `GET /api/public` conserva la configuración y agenda, y entrega la primera página en `menu`; el campo de compatibilidad `products` contiene únicamente esos mismos elementos, no todo el catálogo.
 
 El administrador configura `Business.showMenuPrices` desde Personalización. Por defecto los precios se muestran. La preferencia controla su presentación en la carta y el modal; los pedidos, cuentas y pagos conservan su desglose y sus importes. No cambia los precios almacenados.
+
+### Imágenes y cuentas públicas
+
+La configuración explícita `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY` y `CLOUDINARY_API_SECRET` tiene prioridad sobre `CLOUDINARY_URL`. Definí las tres variables juntas; una configuración parcial se rechaza. Solo se usa `CLOUDINARY_URL` cuando no se definió ninguna de las tres. Las credenciales deben pertenecer al mismo entorno de Cloudinary.
+
+La vista del cliente está en `/cuenta`; los QR anteriores `/?mesa=...` siguen redirigiendo a esa ruta. `GET /api/public/accounts?q=...` busca cuentas abiertas por nombre (2–80 caracteres, coincidencias literales con acentos, máximo 8 resultados sin tokens ni saldos). Al seleccionar una, `GET /api/public/accounts/:id` devuelve su cuenta; una cuenta cerrada no puede abrirse mediante esta búsqueda. Este acceso por nombre es público, igual que el acceso por QR.
+
+Las líneas de pedidos tienen `fulfillmentStatus`: bebidas y snacks usan `pending → delivered`; comidas usan `preparing → ready → delivered`. `PATCH /api/admin/orders/:id` admite `itemIndex` para avanzar una línea, con permisos y transiciones validados en el servidor. No se cobran cuentas hasta que todas las líneas se hayan servido. Los registros anteriores se interpretan al leerlos sin sobrescribir su historial.

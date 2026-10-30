@@ -14,10 +14,12 @@ export {
 } from "../../services/image-validation.js";
 
 export function cloudinaryOptions(env = process.env) {
-  let cloud_name = env.CLOUDINARY_CLOUD_NAME;
-  let api_key = env.CLOUDINARY_API_KEY;
-  let api_secret = env.CLOUDINARY_API_SECRET;
-  if (env.CLOUDINARY_URL) {
+  let cloud_name = env.CLOUDINARY_CLOUD_NAME?.trim();
+  let api_key = env.CLOUDINARY_API_KEY?.trim();
+  let api_secret = env.CLOUDINARY_API_SECRET?.trim();
+  // A complete explicit configuration must not be silently replaced by an old URL.
+  const explicit = [cloud_name, api_key, api_secret].some(Boolean);
+  if (!explicit && env.CLOUDINARY_URL) {
     try {
       const url = new URL(env.CLOUDINARY_URL);
       if (url.protocol !== "cloudinary:") throw new Error();
@@ -31,7 +33,7 @@ export function cloudinaryOptions(env = process.env) {
       );
     }
   }
-  const folder = env.CLOUDINARY_FOLDER;
+  const folder = env.CLOUDINARY_FOLDER?.trim();
   if (
     !cloud_name ||
     !api_key ||
