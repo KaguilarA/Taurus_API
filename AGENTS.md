@@ -1,6 +1,6 @@
 # Project rules
 
-- Hacer más con menos: reuse existing entities, controllers and domain operations across features. Split responsibilities when useful; do not duplicate business logic.
+- Do more with less: reuse existing entities, controllers and domain operations across features. Split responsibilities when useful; do not duplicate business logic.
 
 - The backend must use the existing `models/`, `routes/`, `controllers/`, `api/` and `middlewares/` structure. Extend existing entities and controllers; never introduce a parallel application or duplicate model registry.
 - Use `owl-expressjs-utils` for model construction, hashing, CRUD controllers, sessions, authentication, rate limits, CORS and database connections whenever supported. Do not implement substitutes for features provided by OWL.
