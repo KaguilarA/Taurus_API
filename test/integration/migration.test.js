@@ -85,13 +85,21 @@ test("migración conserva IDs, hashes, inventario, pedidos, cuentas y fuentes; s
     ),
     true,
   );
-  assert.equal((await ProductModel.getById(productId)).stock, 17);
+  assert.equal(
+    (await db.collection("products").findOne({ _id: productId })).stock,
+    17,
+  );
   assert.equal((await OrderModel.getById(orderId)).billId, String(cartId));
   assert.equal((await CartModel.getById(cartId)).token, "preserved-qr-token");
   assert.equal(await db.collection("restaurantaccounts").countDocuments(), 1);
-  await ProductModel.updateWhere({ _id: productId }, { $set: { stock: 12 } });
+  await db
+    .collection("products")
+    .updateOne({ _id: productId }, { $set: { stock: 12 } });
   await migrateLegacyCollections();
-  assert.equal((await ProductModel.getById(productId)).stock, 12);
+  assert.equal(
+    (await db.collection("products").findOne({ _id: productId })).stock,
+    12,
+  );
 });
 test("un conflicto en cualquier colección revierte toda la migración sin borrar ni sobrescribir", async () => {
   const db = OwlDatabase(),

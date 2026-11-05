@@ -2,6 +2,12 @@
 
 Backend Express 5 con MongoDB y `owl-expressjs-utils` 1.0.3. El frontend Angular se encuentra en `../taurus-ng-fe`.
 
+## Formato del código
+
+JavaScript (`.js`, `.mjs` y `.cjs`) usa espacios con indentación de 2. Las reglas están en `.editorconfig` y `.prettierrc.json`. En VS Code, instalá las extensiones recomendadas del proyecto para aplicar el formato automáticamente al guardar; la detección automática de indentación está desactivada.
+
+Ejecutá `npm run format` para aplicar el formato y `npm run format:check` para comprobarlo. El CI exige esta comprobación antes de ejecutar las pruebas y desplegar.
+
 ## Primer arranque
 
 Requiere Node.js 24, npm 12 y MongoDB Atlas o un replica set local. Copiá `.env.example` a `.env` y configurá conexión, nombre de base, origen del frontend y secreto de sesión. Ejecutá `npm ci` y `npm start` (o `npm run dev`). El frontend se inicia con `npm start` en su repositorio.
@@ -14,13 +20,13 @@ Para MongoDB local, configurá las variables LOCAL_MONGO_* del ejemplo y usá `n
 
 ## Qué incluye
 
-- Carta pública con comidas, bebidas, snacks y botanas, precios por tamaño y promociones activas por fecha. Comidas y snacks no descuentan inventario.
+- Carta pública con tipos dinámicos, inicialmente comidas, bebidas, snacks y botellas de licor. Las comidas no descuentan inventario.
 - Pedidos sin autenticación desde un QR por mesa o posición; cuenta compartida, notas y seguimiento en tiempo real.
 - Panel de pedidos con preparación para cocina y entrega/cobro para meseros. Los permisos se verifican también en la API.
 - Registro de pagos en efectivo, SIMPE o tarjeta, con referencia opcional, fecha y persona que recibió el pago.
 - Productos editables, archivado y destacados. Las comidas no tienen inventario.
-- Bebidas por unidad o por mililitros. El stock se almacena en unidades enteras o ml enteros, nunca como botellas fraccionadas.
-- Contenido de botella configurable por producto; medidas globales de trago grande, pequeño y shot.
+- Bebidas y snacks por unidad; botellas de licor por mililitros. El saldo se almacena exclusivamente en ProductStock.
+- Capacidad de cada botella de licor configurable en litros; solo este tipo admite trago grande, pequeño y shot, con medidas globales configurables.
 - Reposiciones, salidas y mermas con motivo y saldo posterior. Los productos nuevos empiezan en cero; se cargan desde Inventario.
 - Ventas mixtas atómicas: si una línea no tiene saldo, no se registra ninguna parte de la venta. Los precios se calculan en el servidor.
 - Clave de idempotencia `requestId`: reintentar una confirmación devuelve la venta original sin descontar dos veces. Usar una clave distinta para cada orden nueva.
@@ -51,9 +57,17 @@ El backend no importa Mongoose ni lo declara como dependencia directa. Todos los
 
 Se consume una revisión inmutable del repositorio original de OWL que incorpora las operaciones necesarias para las órdenes, inventario y recuperación de contraseñas. El lockfile fija la revisión y la integridad del paquete compilado; `.npmrc` permite esa dependencia remota directa. Mongoose permanece encapsulado dentro de OWL.
 
-Las bebidas requieren `drinkType` (`alcoholic` o `non_alcoholic`) al crearse o editarse. La API rechaza valores ausentes, vacíos o inválidos, y el formulario no permite guardar sin seleccionarlo. Las bebidas existentes sin clasificación deben completarse al editarlas; no se adivina el contenido de alcohol a partir de su nombre.
+`ProductType` define código estable, nombre, descripción, modos de inventario, preparación en cocina, requisito de subcategoría de bebida y estado activo. `Product.productType` referencia ese catálogo; `category` conserva su código para compatibilidad. Las bebidas requieren inicialmente `drinkType` (`alcoholic` o `non_alcoholic`). Los pedidos guardan si cada línea requiere cocina, de modo que editar el tipo no altera pedidos anteriores.
+
+`ProductStock.owner` es único: cada producto con inventario tiene un solo saldo y mínimo. Saldos iguales en productos distintos son válidos. Las altas empiezan en cero; ajustes, pedidos, ventas y anulaciones actualizan saldo y movimientos en la misma transacción OWL. El saldo mostrado en `/api/admin/state` se obtiene de `ProductStock`; los campos antiguos de `Product` no se utilizan.
+
+Para una botella usá `category: "liquor"`, `inventory: "ml"`, `bottleLiters: 0.75` y `prices: { shot, small, large }`. La capacidad se convierte a mililitros enteros (`bottleMl: 750`); también se acepta `bottleMl` por compatibilidad. La capacidad no establece existencias: dos botellas de 750 ml se cargan con un ajuste `delta: 1500`. Los productos también pueden identificar su tipo mediante `productType` en vez de `category`.
+
+Se retiraron las rutas y controladores antiguos sin uso de `api/routes` y `api/controllers`, junto con el controlador base y el adaptador de guardado obsoletos. `api/api.js` continúa montando las rutas activas. Las colecciones y entidades históricas se conservan para proteger referencias y datos almacenados.
 
 ### Migración desde la implementación anterior
+
+La migración de catálogo al arrancar reutiliza `producttypes` y `productstocks`, copia saldos y mínimos, enlaza productos y reclasifica bebidas en mililitros como botellas de licor. Los snacks sin inventario pasan a unidades con saldo cero, salvo que ya exista saldo almacenado. Conserva los valores de origen en `legacyCatalog` y todo el historial; retira `stock`, `minimum` y `type` del documento activo después de archivarlos. La actualización v2 también limpia instalaciones que ya migraron, sin volver a importar saldos antiguos. Retira el índice único incorrecto sobre el saldo y exige unicidad por producto. Saldos contradictorios, inventarios duplicados, referencias ambiguas o capacidades inválidas detienen la migración sin sobrescribir datos. Una marca persistente evita volver a copiar saldos antiguos. Una base con productos existentes exige `MAINTENANCE_MODE=true` antes de migrar, siguiendo el procedimiento descrito a continuación.
 
 Las colecciones paralelas `restaurant*` se copian a las entidades canónicas (`User`, `Product`, `Promo`, `Cart`, etc.) en **una sola transacción**. Se conservan IDs, hashes, timestamps, referencias, inventario y pagos. Las fuentes no se borran. Una marca persistente evita volver a copiar datos antiguos; cualquier conflicto revierte la migración completa sin sobrescribir registros.
 
@@ -81,6 +95,9 @@ Antes de actualizar una instalación anterior, desplegá la protección de mante
 | GET / POST | `/api/admin/accounts`                | Listar/crear accesos `{ name, username, password, role }`; administrador |
 | GET        | `/api/admin/state`                   | Productos, configuración y últimos 100 movimientos/ventas         |
 | PUT        | `/api/admin/settings`                | Actualizar configuración y medidas                                |
+| GET        | `/api/public/product-types` | Tipos activos y sus opciones |
+| GET / POST | `/api/admin/product-types` | Listar o crear tipos; administrador |
+| PUT        | `/api/admin/product-types/:id` | Editar o archivar con `active: false`; rechaza cambios incompatibles con productos existentes |
 | POST / PUT | `/api/admin/products[/:id]`          | Crear o editar producto; no modifica stock                        |
 | POST       | `/api/admin/products/:id/stock`      | `{ delta, reason }`, en ml o unidades                             |
 | POST / PUT | `/api/admin/promotions[/:id]`        | Crear o editar promoción                                          |

@@ -1,3 +1,4 @@
+import { migrateCatalog } from "./db/migrate-catalog.js";
 import { OwlAdminCommand, OwlMongoClose } from "owl-expressjs-utils";
 import { registeredModels } from "./models/models.js";
 import { migrateLegacyCollections } from "./db/migrate-legacy.js";
@@ -32,8 +33,9 @@ try {
     throw new ConfigurationError(
       "MongoDB debe ser replica set o Atlas para transacciones y sockets.",
     );
-  await Promise.all(registeredModels.map((model) => model.initialize()));
   await migrateLegacyCollections();
+  await migrateCatalog();
+  await Promise.all(registeredModels.map((model) => model.initialize()));
   await seed();
   if (config.production) await assertProductionAccounts();
   const app = createApp({

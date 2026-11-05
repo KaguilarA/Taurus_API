@@ -1,17 +1,13 @@
 # ProductStock
 
-Representa la existencia disponible de un producto.
+Inventario canónico por producto, registrado una sola vez con `OwlModel`.
 
-## Campos
+| Campo | Tipo | Reglas |
+| --- | --- | --- |
+| `owner` | `ObjectId` | Requerido, único, referencia a `Product` |
+| `stock` | `Number` | Entero seguro no negativo, requerido |
+| `minimum` | `Number` | Entero seguro no negativo, predeterminado `0` |
 
-| Campo | Tipo | Requerido | Reglas |
-| --- | --- | --- | --- |
-| `stock` | `Number` | Sí | Único, mínimo `0` |
-| `owner` | `ObjectId` | Sí | Referencia a `Product` |
+Bebidas y snacks manejan unidades; botellas de licor, mililitros enteros. Las comidas no tienen registro de inventario. La capacidad de la botella pertenece a `Product.bottleMl`, no al saldo.
 
-`stock` está marcado como único en el esquema actual: MongoDB no permitirá que dos documentos tengan el mismo valor de stock. Esto documenta el comportamiento implementado, aunque normalmente la unicidad esperada estaría en `owner`.
-
-```mermaid
-flowchart LR
-	Product -->|owner| ProductStock
-```
+Todos los ajustes participan en transacciones OWL con sus movimientos y, cuando corresponde, pedidos o ventas. La migración conserva campos de origen y rechaza duplicados o saldos contradictorios.

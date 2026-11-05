@@ -1,3 +1,4 @@
+import { saveProducts } from "./catalog.js";
 import { OwlTransaction } from "owl-expressjs-utils";
 import {
   UserModel,
@@ -124,13 +125,13 @@ export async function seedPreviewData({ resetAdminPassword = false } = {}) {
         )
       )
         return;
-      const [product] = await ProductModel.saveMany(
+      const [product] = await saveProducts(
         [
           {
             ...sample,
             sampleKey,
-            inventory: sample.category === "drink" ? "unit" : "none",
-            stock: sample.category === "drink" ? 24 : 0,
+            inventory: sample.category !== "food" ? "unit" : "none",
+            stock: sample.category !== "food" ? 24 : 0,
             minimum: sample.category === "drink" ? 6 : 0,
             active: true,
           },

@@ -18,6 +18,7 @@ const model = {
       productId: String,
       name: String,
       category: String,
+      kitchen: Boolean,
       fulfillmentStatus: {
         type: String,
         enum: ["pending", "preparing", "ready", "delivered"],

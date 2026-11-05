@@ -48,7 +48,6 @@ for (const directory of [
   "models",
   "routes",
   "services",
-  "utils",
 ])
   await cp(resolve(projectRoot, directory), join(backend, directory), {
     recursive: true,

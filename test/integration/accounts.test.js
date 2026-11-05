@@ -1,3 +1,5 @@
+import { ProductTypeModel } from "../../models/models.js";
+import { initializeCatalog } from "../fixtures/catalog.js";
 import { OwlMongoConnect, OwlMongoClose } from "owl-expressjs-utils";
 import {
   UserModel,
@@ -19,6 +21,7 @@ const nextPassword = "Updated-account-password-2026!";
 before(async () => {
   replica = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
   await OwlMongoConnect(replica.getUri("profile-recovery-tests"));
+  await initializeCatalog();
   await Promise.all(registeredModels.map((m) => m.initialize()));
   app = createApp({
     origin: "http://localhost:4200",
@@ -200,22 +203,21 @@ test("subtipo de bebida se valida y no se aplica a comidas", async () => {
     price: 1000,
     drinkType: "alcoholic",
   };
-  assert.equal(productInput(base).drinkType, "alcoholic");
+  const drink = await ProductTypeModel.getOne({ code: "drink" });
+  const food = await ProductTypeModel.getOne({ code: "food" });
+  assert.equal(productInput(base, drink).drinkType, "alcoholic");
   assert.equal(
-    productInput({ ...base, drinkType: "non_alcoholic" }).drinkType,
+    productInput({ ...base, drinkType: "non_alcoholic" }, drink).drinkType,
     "non_alcoholic",
   );
   for (const drinkType of [undefined, "", "invalid", null])
-    assert.throws(() => productInput({ ...base, drinkType }));
-  await assert.rejects(
-    () => ProductModel.save({ ...base, drinkType: undefined }),
-    /drinkType/,
-  );
+    assert.throws(() => productInput({ ...base, drinkType }, drink));
   assert.equal(
-    productInput({ ...base, category: "food", inventory: "none" }).drinkType,
+    productInput({ ...base, category: "food", inventory: "none" }, food)
+      .drinkType,
     "",
   );
-  const created = await ProductModel.save(productInput(base));
+  const created = await ProductModel.save(productInput(base, drink));
   assert.equal(created.drinkType, "alcoholic");
 });
 

@@ -1,9 +1,11 @@
+import { changeStock } from "../../services/inventory.js";
 import {
   orderItems,
   overallStatus,
   needsKitchen,
 } from "../../services/order-progress.js";
 import { searchPattern } from "../../services/menu.js";
+import { salesRanking } from "../../services/sales-report.js";
 import { OwlIsValidId, OwlTransaction } from "owl-expressjs-utils";
 import {
   UserModel,
@@ -12,9 +14,7 @@ import {
   OrderModel,
   ProductModel,
   StockMovementModel,
-  BusinessModel,
 } from "../../models/models.js";
-import { saleLine } from "../../services/validation.js";
 import QRCode from "qrcode";
 import { Problem, text, usernameInput } from "../../services/validation.js";
 import {
@@ -171,7 +171,7 @@ export function createPublicOrderingController({ production, origin } = {}) {
         );
         const items = lines.map((line) => ({
           ...line,
-          fulfillmentStatus: line.category === "food" ? "preparing" : "pending",
+          fulfillmentStatus: line.kitchen ? "preparing" : "pending",
         }));
         [order] = await OrderModel.saveMany(
           [
@@ -269,7 +269,7 @@ export function createStaffOrderingController({ production, origin } = {}) {
         if (index !== undefined && position !== index) continue;
         const current = item.fulfillmentStatus;
         const allowed =
-          item.category === "food"
+          (item.kitchen ?? item.category === "food")
             ? (next === "preparing" && current === "preparing") ||
               (next === "ready" && current === "preparing") ||
               (next === "delivered" && current === "ready")
@@ -394,49 +394,7 @@ export function createCartController({ origin, production } = {}) {
       await OwlTransaction(async (session) => {
         sale = await OrderModel.getOne({ requestId }, { session: session });
         if (sale) return;
-        const settings = await BusinessModel.getOne(
-          { key: "main" },
-          { session: session },
-        );
-        if (!settings)
-          throw new Problem(
-            "Completá la información del negocio antes de registrar pedidos.",
-            409,
-          );
-        const lines = [];
-        const movements = [];
-        for (const input of items) {
-          const product = await ProductModel.getOne(
-            {
-              _id: input.productId,
-              active: true,
-            },
-            { session: session },
-          );
-          if (!product) throw new Problem("Producto no disponible.", 409);
-          const line = saleLine(product, input, settings.servings);
-          if (line.consumed) {
-            const updated = await ProductModel.updateWhere(
-              { _id: product._id, stock: { $gte: line.consumed } },
-              { $inc: { stock: -line.consumed } },
-              { new: true, session },
-            );
-            if (!updated)
-              throw new Problem(
-                `Inventario insuficiente: ${product.name}.`,
-                409,
-              );
-            movements.push({
-              productId: String(product._id),
-              productName: product.name,
-              delta: -line.consumed,
-              unit: product.inventory,
-              reason: "Venta",
-              balance: updated.stock,
-            });
-          }
-          lines.push(line);
-        }
+        const { lines, movements, total } = await reserveItems(items, session);
         [sale] = await OrderModel.saveMany(
           [
             {
@@ -445,10 +403,7 @@ export function createCartController({ origin, production } = {}) {
               paymentMethod: method,
               paidAt: new Date(),
               items: lines,
-              total:
-                Math.round(
-                  lines.reduce((sum, item) => sum + item.amount, 0) * 100,
-                ) / 100,
+              total,
             },
           ],
           { session },
@@ -476,11 +431,12 @@ export function createCartController({ origin, production } = {}) {
       if (!sale) throw new Problem("Venta no encontrada o ya anulada.", 409);
       for (const item of sale.items)
         if (item.consumed) {
-          const product = await ProductModel.update(
-            item.productId,
-            { $inc: { stock: item.consumed } },
-            { new: true, session },
-          );
+          const product = await ProductModel.getById(item.productId, {
+            session,
+          });
+          if (!product)
+            throw new Problem("Producto del inventario no encontrado.", 409);
+          const stock = await changeStock(product, item.consumed, session);
           await StockMovementModel.saveMany(
             [
               {
@@ -490,7 +446,7 @@ export function createCartController({ origin, production } = {}) {
                 unit: product.inventory,
                 reason: `Anulación: ${reason}`,
                 saleId: String(sale._id),
-                balance: product.stock,
+                balance: stock.stock,
               },
             ],
             { session },
@@ -522,19 +478,7 @@ export function createCartController({ origin, production } = {}) {
           },
         },
       ]),
-      OrderModel.aggregate([
-        { $match: match },
-        { $unwind: "$items" },
-        {
-          $group: {
-            _id: { productId: "$items.productId", category: "$items.category" },
-            name: { $last: "$items.name" },
-            quantity: { $sum: "$items.quantity" },
-            revenue: { $sum: "$items.amount" },
-          },
-        },
-        { $sort: { quantity: -1, revenue: -1 } },
-      ]),
+      salesRanking(match),
     ]);
     res.json({
       revenue: summary[0]?.revenue ?? 0,

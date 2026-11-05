@@ -1,3 +1,5 @@
+import { changeStock } from "./inventory.js";
+import { productTypeFor } from "./product-types.js";
 import { OwlIsValidId } from "owl-expressjs-utils";
 import {
   ProductModel,
@@ -33,17 +35,23 @@ export async function reserveItems(items, session) {
       { session: session },
     );
     if (!product) throw new Problem("Producto no disponible.", 409);
-    const line = saleLine(product, input, settings.servings);
-    if (line.consumed) {
-      const updated = await ProductModel.updateWhere(
-        { _id: product._id, stock: { $gte: line.consumed } },
-        { $inc: { stock: -line.consumed } },
-        { new: true, session },
+    const type = await productTypeFor(
+      { productType: product.productType, category: product.category },
+      session,
+    );
+    const line = {
+      ...saleLine(product, input, settings.servings),
+      kitchen: type.kitchen,
+    };
+    if (!type.inventoryModes.includes(product.inventory))
+      throw new Problem(
+        "El inventario no corresponde al tipo del producto.",
+        409,
       );
-      if (!updated)
-        throw new Problem(`Inventario insuficiente: ${product.name}.`, 409);
+    if (line.consumed) {
+      const updated = await changeStock(product, -line.consumed, session);
       movements.push({
-        productId: product.id,
+        productId: String(product._id),
         productName: product.name,
         delta: -line.consumed,
         unit: product.inventory,

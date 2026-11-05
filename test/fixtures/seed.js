@@ -1,3 +1,4 @@
+import { initializeCatalog, saveProducts } from "./catalog.js";
 import {
   UserModel,
   BusinessModel,
@@ -9,6 +10,7 @@ import {
 import { usernameInput } from "../../services/validation.js";
 
 export async function seed({ email, username, password, demo = false }) {
+  await initializeCatalog();
   if (!(await BusinessModel.getOne({ key: "main" })))
     await BusinessModel.save({
       key: "main",
@@ -75,13 +77,14 @@ export async function seed({ email, username, password, demo = false }) {
       accent: "#F5A623",
     });
   if (!demo || (await ProductModel.countDocuments())) return;
-  const products = await ProductModel.saveMany([
+  const products = await saveProducts([
     {
       name: "Papas tostadas de la casa",
       description:
         "Crujientes, con sal y limón. La botana para acompañar tu bebida.",
       category: "snack",
-      inventory: "none",
+      inventory: "unit",
+      stock: 24,
       price: 1800,
       image: "/images/nachos.svg",
     },

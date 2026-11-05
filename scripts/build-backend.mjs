@@ -21,7 +21,6 @@ for (const directory of [
   "models",
   "routes",
   "services",
-  "utils",
 ])
   await cp(join(root, directory), join(output, directory), {
     recursive: true,

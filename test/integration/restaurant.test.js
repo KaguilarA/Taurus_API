@@ -1,3 +1,4 @@
+import { stockFor, saveProduct } from "../fixtures/catalog.js";
 import { OwlMongoConnect, OwlMongoClose } from "owl-expressjs-utils";
 import {
   ProductModel,
@@ -89,16 +90,16 @@ test("venta mixta descuenta ml y unidades; comida no consume inventario", async 
     })
     .expect(201);
   assert.equal(body.total, 9000 + 3200 + 13000 + 8400);
-  assert.equal((await ProductModel.getById(rum.id)).stock, 2760);
-  assert.equal((await ProductModel.getById(beer.id)).stock, 21);
-  assert.equal((await ProductModel.getById(food.id)).stock, 0);
+  assert.equal(await stockFor(rum.id), 2760);
+  assert.equal(await stockFor(beer.id), 21);
+  assert.equal(await stockFor(food.id), 0);
   assert.equal(
     await StockMovementModel.countDocuments({ saleId: body._id }),
     3,
   );
 });
 test("reintentar una venta no vuelve a cobrar ni descontar", async () => {
-  const before = await ProductModel.getById(rum.id);
+  const before = await stockFor(rum.id);
   await admin
     .post("/api/admin/sales")
     .send({
@@ -106,11 +107,11 @@ test("reintentar una venta no vuelve a cobrar ni descontar", async () => {
       items: [{ productId: rum.id, serving: "shot", quantity: 1 }],
     })
     .expect(201);
-  assert.equal((await ProductModel.getById(rum.id)).stock, before.stock);
+  assert.equal(await stockFor(rum.id), before);
   assert.equal(await OrderModel.countDocuments({ requestId: "mixed" }), 1);
 });
 test("falta de stock revierte la venta completa y sus movimientos", async () => {
-  const before = (await ProductModel.getById(rum.id)).stock;
+  const before = await stockFor(rum.id);
   await admin
     .post("/api/admin/sales")
     .send({
@@ -121,11 +122,11 @@ test("falta de stock revierte la venta completa y sus movimientos", async () => 
       ],
     })
     .expect(409);
-  assert.equal((await ProductModel.getById(rum.id)).stock, before);
+  assert.equal(await stockFor(rum.id), before);
   assert.equal(await OrderModel.countDocuments({ requestId: "rollback" }), 0);
 });
 test("ventas concurrentes nunca dejan saldo negativo", async () => {
-  const scarce = await ProductModel.save({
+  const scarce = await saveProduct({
     name: "Último shot",
     category: "drink",
     drinkType: "alcoholic",
@@ -143,7 +144,7 @@ test("ventas concurrentes nunca dejan saldo negativo", async () => {
     ),
   );
   assert.deepEqual(results.map((r) => r.status).sort(), [201, 409]);
-  assert.equal((await ProductModel.getById(scarce.id)).stock, 0);
+  assert.equal(await stockFor(scarce.id), 0);
 });
 test("cantidad, medida y categoría inválidas son rechazadas", async () => {
   for (const quantity of [0, -1, 0.5, "1"])
@@ -177,7 +178,7 @@ test("cantidad, medida y categoría inválidas son rechazadas", async () => {
     .expect(400);
 });
 test("reposiciones y mermas registran saldo; no permiten saldo negativo", async () => {
-  const before = (await ProductModel.getById(rum.id)).stock;
+  const before = await stockFor(rum.id);
   await admin
     .post(`/api/admin/products/${rum.id}/stock`)
     .send({ delta: 1000, reason: "Compra de botella" })
@@ -186,7 +187,7 @@ test("reposiciones y mermas registran saldo; no permiten saldo negativo", async 
     .post(`/api/admin/products/${rum.id}/stock`)
     .send({ delta: -60, reason: "Merma" })
     .expect(200);
-  assert.equal((await ProductModel.getById(rum.id)).stock, before + 940);
+  assert.equal(await stockFor(rum.id), before + 940);
   await admin
     .post(`/api/admin/products/${rum.id}/stock`)
     .send({ delta: -100000, reason: "Error" })
@@ -198,7 +199,7 @@ test("reposiciones y mermas registran saldo; no permiten saldo negativo", async 
 });
 test("anulación devuelve inventario una sola vez y sale del reporte", async () => {
   const sale = await OrderModel.getOne({ requestId: "mixed" });
-  const before = (await ProductModel.getById(rum.id)).stock;
+  const before = await stockFor(rum.id);
   await admin
     .post(`/api/admin/sales/${sale.id}/void`)
     .send({ reason: "Pedido duplicado" })
@@ -207,7 +208,7 @@ test("anulación devuelve inventario una sola vez y sale del reporte", async () 
     .post(`/api/admin/sales/${sale.id}/void`)
     .send({ reason: "Otra vez" })
     .expect(409);
-  assert.equal((await ProductModel.getById(rum.id)).stock, before + 240);
+  assert.equal(await stockFor(rum.id), before + 240);
   const { body } = await admin.get("/api/admin/reports").expect(200);
   assert.equal(body.count, 1);
   assert.equal(body.revenue, 1000);
@@ -218,7 +219,7 @@ test("medidas configurables afectan próximas ventas y preservan las anteriores"
   const { body } = await admin.get("/api/admin/state").expect(200);
   body.settings.servings.shot = 25;
   await admin.put("/api/admin/settings").send(body.settings).expect(200);
-  const before = (await ProductModel.getById(rum.id)).stock;
+  const before = await stockFor(rum.id);
   await admin
     .post("/api/admin/sales")
     .send({
@@ -226,7 +227,7 @@ test("medidas configurables afectan próximas ventas y preservan las anteriores"
       items: [{ productId: rum.id, serving: "shot", quantity: 2 }],
     })
     .expect(201);
-  assert.equal((await ProductModel.getById(rum.id)).stock, before - 50);
+  assert.equal(await stockFor(rum.id), before - 50);
   const old = await OrderModel.getOne({ requestId: "mixed" });
   assert.equal(old.items[0].consumed, 180);
   assert.equal(old.items[0].unitPrice, 4500);
@@ -246,7 +247,7 @@ test("ventas solo de comida se registran sin movimientos de inventario", async (
   );
 });
 test("confirmaciones simultáneas de la misma orden descuentan una vez", async () => {
-  const before = (await ProductModel.getById(rum.id)).stock;
+  const before = await stockFor(rum.id);
   const payload = {
     requestId: "same-order-concurrent",
     items: [{ productId: rum.id, serving: "shot", quantity: 1 }],
@@ -260,7 +261,7 @@ test("confirmaciones simultáneas de la misma orden descuentan una vez", async (
     [201, 201],
   );
   assert.equal(responses[0].body._id, responses[1].body._id);
-  assert.equal((await ProductModel.getById(rum.id)).stock, before - 25);
+  assert.equal(await stockFor(rum.id), before - 25);
 });
 test("promociones futuras, vencidas y pausadas no se publican", async () => {
   for (const [starts, ends, active] of [

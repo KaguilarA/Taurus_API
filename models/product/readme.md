@@ -1,23 +1,11 @@
 # Product
 
-Representa un producto vendible.
+Producto vendible con nombre, descripción, imagen, precio, estado activo y destacado.
 
-## Campos
+`productType` referencia el catálogo `ProductType`; `category` guarda su código para compatibilidad. Las categorías no están limitadas por un enum en código. `inventory` debe coincidir con los modos permitidos del tipo.
 
-| Campo | Tipo | Requerido | Reglas |
-| --- | --- | --- | --- |
-| `name` | `String` | Sí | `trim`, máximo 150 caracteres |
-| `description` | `String` | No | `trim`, máximo 500 caracteres |
-| `state` | `ObjectId` | Sí | Referencia a `State` |
-| `type` | `ObjectId[]` | No | Elementos requeridos, referencias a `ProductType` |
+Las botellas de licor (`liquor`, inventario `ml`) guardan capacidad en `bottleMl` y precios en `prices.shot`, `prices.small` y `prices.large`. La API acepta litros mediante `bottleLiters` y los convierte a mililitros enteros. Las medidas consumidas se configuran en `Business.servings`.
 
-`type` es un array de referencias; cada elemento debe ser un `ObjectId` válido. El esquema no exige que el array tenga al menos un elemento.
+Saldo y mínimo pertenecen exclusivamente a `ProductStock`. Los valores antiguos se archivan en `legacyCatalog`; los campos `stock`, `minimum` y `type` se retiran del documento activo después de preservar su contenido. No se utilizan para vender o ajustar inventario. Las respuestas administrativas incluyen el saldo de `ProductStock`; la carta pública no lo expone.
 
-```mermaid
-erDiagram
-	STATE ||--o{ PRODUCT : classifies
-	PRODUCT }o--o{ PRODUCT_TYPE : has
-	PRODUCT ||--o{ PRODUCT_STOCK : has
-	PRODUCT ||--o{ PRICE : priced_by
-	PRODUCT ||--o{ IMAGE : illustrated_by
-```
+`state` se conserva por compatibilidad. El array histórico `type` se migra a una referencia única; referencias múltiples o contradicciones detienen la migración.

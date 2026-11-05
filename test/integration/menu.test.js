@@ -1,3 +1,4 @@
+import { initializeCatalog, saveProducts } from "../fixtures/catalog.js";
 import { test, before, after } from "node:test";
 import assert from "node:assert/strict";
 import session from "express-session";
@@ -8,6 +9,7 @@ import {
   ProductModel,
   BusinessModel,
   UserModel,
+  OrderModel,
   registeredModels,
 } from "../../models/models.js";
 import { createApp } from "../../app.js";
@@ -52,7 +54,8 @@ before(async () => {
       active: true,
     },
   );
-  products = await ProductModel.saveMany(data);
+  await initializeCatalog();
+  products = await saveProducts(data);
   for (const role of ["admin", "waiter"])
     await UserModel.save({
       username: role,
@@ -196,4 +199,84 @@ test("solo el admin configura visibilidad y la preferencia persiste sin alterar 
     false,
   );
   assert.equal((await ProductModel.getById(products[0]._id)).price, 1500);
+});
+
+test("recomendaciones comparten ventas pagadas, conservan datos actuales y no exponen cifras privadas", async () => {
+  const line = (product, quantity, category = product.category) => ({
+    productId: String(product._id),
+    name: "Nombre histórico",
+    category,
+    quantity,
+    unitPrice: product.price,
+    amount: quantity * product.price,
+    serving: "unit",
+    consumed: 0,
+  });
+  await OrderModel.saveMany([
+    {
+      requestId: "recommendations-paid",
+      status: "paid",
+      total: 10000,
+      items: [
+        line(products[0], 8),
+        line(products[1], 12),
+        line(products[2], 4),
+        line(products[2], 10, "food"),
+        line(products[17], 500),
+        line(products[18], 7),
+        line(products[19], 3),
+        line(products[22], 9),
+      ],
+    },
+    {
+      requestId: "recommendations-open",
+      status: "open",
+      total: 10000,
+      items: [line(products[3], 1000)],
+    },
+    {
+      requestId: "recommendations-void",
+      status: "void",
+      total: 10000,
+      items: [line(products[4], 1000)],
+    },
+  ]);
+  const { body } = await request(app).get("/api/public").expect(200);
+  const recommended = body.recommendations;
+  assert.equal(recommended.length, 5);
+  assert.deepEqual(
+    recommended.filter((p) => p.category === "drink").map((p) => p._id),
+    [String(products[2]._id), String(products[1]._id)],
+  );
+  assert.equal(
+    recommended.find((p) => p._id === String(products[2]._id)).name,
+    products[2].name,
+  );
+  assert.equal(recommended.filter((p) => p.category === "food").length, 2);
+  assert.equal(recommended.filter((p) => p.category === "snack").length, 1);
+  for (const product of recommended) {
+    for (const field of [
+      "quantity",
+      "revenue",
+      "stock",
+      "minimum",
+      "sales",
+      "paidAt",
+    ])
+      assert.equal(product[field], undefined);
+  }
+  const workspace = (await admin.get("/api/admin/state").expect(200)).body;
+  assert.deepEqual(workspace.recommendations, recommended);
+  const report = (await admin.get("/api/admin/reports").expect(200)).body;
+  assert.ok(
+    !report.ranking.some((row) =>
+      [String(products[3]._id), String(products[4]._id)].includes(
+        row._id.productId,
+      ),
+    ),
+  );
+  assert.deepEqual(
+    (await waiter.get("/api/admin/state").expect(200)).body.recommendations,
+    [],
+  );
 });

@@ -1,8 +1,10 @@
-import { getMenuPage } from "../../services/menu.js";
+import { productsWithInventory } from "../../services/inventory.js";
+import { getMenuPage, getMenuRecommendations } from "../../services/menu.js";
 import { OwlMongoStatus, OwlMongoCommand } from "owl-expressjs-utils";
 import {
   BusinessModel,
   ProductModel,
+  ProductTypeModel,
   PromoModel,
   OrderModel,
   StockMovementModel,
@@ -35,6 +37,11 @@ export function createPublicController({
       settings: await BusinessModel.getOne({ key: "main" }),
       products: menu.items,
       menu,
+      recommendations: await getMenuRecommendations(),
+      productTypes: await ProductTypeModel.getByCoincidence(
+        { active: true },
+        { lean: true },
+      ),
       promotions: await PromoModel.getByCoincidence(
         {
           active: true,
@@ -56,11 +63,24 @@ export function createPublicController({
   const workspace = async (req, res) =>
     res.json({
       settings: await BusinessModel.getOne({ key: "main" }),
-      products:
+      recommendations:
         (req.account.role ?? "admin") === "admin"
-          ? await ProductModel.getByCoincidence(
+          ? await getMenuRecommendations()
+          : [],
+      productTypes:
+        (req.account.role ?? "admin") === "admin"
+          ? await ProductTypeModel.getByCoincidence(
               {},
               { sort: { name: 1 }, lean: true },
+            )
+          : [],
+      products:
+        (req.account.role ?? "admin") === "admin"
+          ? await productsWithInventory(
+              await ProductModel.getByCoincidence(
+                {},
+                { sort: { name: 1 }, lean: true },
+              ),
             )
           : [],
       promotions:

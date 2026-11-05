@@ -1,3 +1,4 @@
+import { stockFor } from "../fixtures/catalog.js";
 import { OwlMongoConnect, OwlMongoClose } from "owl-expressjs-utils";
 import {
   CartModel,
@@ -57,13 +58,17 @@ before(async () => {
     .send({
       name: "Papas tostadas",
       category: "snack",
-      inventory: "none",
+      inventory: "unit",
       price: 1500,
       description: "Botana",
       image: "",
     })
     .expect(201);
   snack = created.body;
+  await admin
+    .post(`/api/admin/products/${snack._id}/stock`)
+    .send({ delta: 100, reason: "Saldo de prueba" })
+    .expect(200);
   beer = await ProductModel.getOne({ name: "Cerveza artesanal" });
   const location = await admin
     .post("/api/admin/tables")
@@ -76,7 +81,7 @@ after(async () => {
   if (replica) await replica.stop();
 });
 
-test("snacks y botanas se publican y rechazan inventario de bebida", async () => {
+test("snacks se publican y rechazan inventario en mililitros", async () => {
   const { body } = await request(app).get("/api/public").expect(200);
   assert.equal(
     body.products.find((p) => p._id === snack._id).category,
@@ -84,7 +89,7 @@ test("snacks y botanas se publican y rechazan inventario de bebida", async () =>
   );
   await admin
     .post("/api/admin/products")
-    .send({ ...snack, inventory: "unit" })
+    .send({ ...snack, inventory: "ml" })
     .expect(400);
 });
 
@@ -134,7 +139,8 @@ test("QR identifica posición y escaneos simultáneos comparten una sola cuenta"
 });
 
 test("pedido anónimo mixto usa precios del servidor y reintentos reservan inventario una vez", async () => {
-  const stock = beer.stock;
+  const stock = await stockFor(beer.id);
+  const snackStock = await stockFor(snack._id);
   const payload = {
     requestId: "guest-order",
     notes: "Para compartir",
@@ -157,7 +163,8 @@ test("pedido anónimo mixto usa precios del servidor y reintentos reservan inven
   assert.equal(results[0].body.orderStatus, "pending");
   assert.equal(results[0].body.requestId, undefined);
   assert.equal(results[0].body.items[0].consumed, undefined);
-  assert.equal((await ProductModel.getById(beer.id)).stock, stock - 1);
+  assert.equal(await stockFor(beer.id), stock - 1);
+  assert.equal(await stockFor(snack._id), snackStock - 2);
   const account = await request(app)
     .get(`/api/public/bills/${guest.token}`)
     .expect(200);
@@ -411,7 +418,7 @@ test("usuario y contraseña permiten entrar sin correo y los datos de prueba son
   await seedPreviewData();
   assert.equal(await ProductModel.countDocuments(), count);
   assert.equal(await StockMovementModel.countDocuments(), movementCount);
-  assert.equal((await ProductModel.getById(imperial.id)).stock, 23);
+  assert.equal(await stockFor(imperial.id), 23);
   const staff = await viewer
     .post("/api/admin/accounts")
     .send({
@@ -528,7 +535,7 @@ test("branding de Felos y eventos de muestra conservan precios e inventario al v
       .every((event) => event.starts === null && event.isSample),
   );
   const saved = await ProductModel.getById(imperial.id);
-  assert.equal(saved.stock, imperial.stock);
+  assert.equal(await stockFor(saved._id), await stockFor(imperial._id));
   assert.equal(saved.price, imperial.price);
 });
 

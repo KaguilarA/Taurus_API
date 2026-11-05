@@ -2,7 +2,7 @@
 export function itemStatus(item, orderStatus) {
   if (item.fulfillmentStatus) return item.fulfillmentStatus;
   if (orderStatus === "delivered") return "delivered";
-  return item.category === "food"
+  return (item.kitchen ?? item.category === "food")
     ? orderStatus === "ready"
       ? "ready"
       : "preparing"
@@ -15,6 +15,7 @@ export function orderItems(order) {
     productId: item.productId,
     name: item.name,
     category: item.category,
+    kitchen: item.kitchen,
     serving: item.serving,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
@@ -36,7 +37,7 @@ export function overallStatus(items) {
 export function needsKitchen(order) {
   return order.items.some(
     (item) =>
-      item.category === "food" &&
+      (item.kitchen ?? item.category === "food") &&
       itemStatus(item, order.orderStatus) !== "delivered",
   );
 }
