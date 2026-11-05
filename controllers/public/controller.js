@@ -32,86 +32,94 @@ export function createPublicController({
   };
   const menu = async (req, res) => {
     const now = new Date();
-    const menu = await getMenuPage(req.query);
+    const [settings, menu, recommendations, productTypes, promotions, events] =
+      await Promise.all([
+        BusinessModel.getOne({ key: "main" }, { lean: true }),
+        getMenuPage(req.query),
+        getMenuRecommendations(),
+        ProductTypeModel.getByCoincidence({ active: true }, { lean: true }),
+        PromoModel.getByCoincidence(
+          { active: true, starts: { $lte: now }, ends: { $gte: now } },
+          { lean: true },
+        ),
+        EventModel.getByCoincidence(
+          {
+            active: true,
+            ...(production ? { isSample: { $ne: true } } : {}),
+            $or: [{ ends: null }, { ends: { $gte: now } }],
+          },
+          { sort: { starts: 1, createdAt: -1 }, lean: true },
+        ),
+      ]);
     res.json({
-      settings: await BusinessModel.getOne({ key: "main" }),
+      settings,
       products: menu.items,
       menu,
-      recommendations: await getMenuRecommendations(),
-      productTypes: await ProductTypeModel.getByCoincidence(
-        { active: true },
-        { lean: true },
-      ),
-      promotions: await PromoModel.getByCoincidence(
-        {
-          active: true,
-          starts: { $lte: now },
-          ends: { $gte: now },
-        },
-        { lean: true },
-      ),
-      events: await EventModel.getByCoincidence(
-        {
-          active: true,
-          ...(production ? { isSample: { $ne: true } } : {}),
-          $or: [{ ends: null }, { ends: { $gte: now } }],
-        },
-        { sort: { starts: 1, createdAt: -1 }, lean: true },
-      ),
+      recommendations,
+      productTypes,
+      promotions,
+      events,
     });
   };
-  const workspace = async (req, res) =>
+  const workspace = async (req, res) => {
+    const admin = (req.account.role ?? "admin") === "admin";
+    const [
+      settings,
+      recommendations,
+      productTypes,
+      products,
+      promotions,
+      sales,
+      movements,
+      events,
+    ] = await Promise.all([
+      BusinessModel.getOne({ key: "main" }, { lean: true }),
+      admin ? getMenuRecommendations() : [],
+      admin
+        ? ProductTypeModel.getByCoincidence(
+            {},
+            { sort: { name: 1 }, lean: true },
+          )
+        : [],
+      admin
+        ? ProductModel.getByCoincidence(
+            {},
+            { sort: { name: 1 }, lean: true },
+          ).then((products) => productsWithInventory(products))
+        : [],
+      admin
+        ? PromoModel.getByCoincidence(
+            {},
+            { sort: { createdAt: -1 }, lean: true },
+          )
+        : [],
+      admin
+        ? OrderModel.getByCoincidence(
+            {},
+            { sort: { createdAt: -1 }, limit: 100, lean: true },
+          )
+        : [],
+      admin
+        ? StockMovementModel.getByCoincidence(
+            {},
+            { sort: { createdAt: -1 }, limit: 100, lean: true },
+          )
+        : [],
+      admin
+        ? EventModel.getByCoincidence({}, { sort: { starts: 1 }, lean: true })
+        : [],
+    ]);
     res.json({
-      settings: await BusinessModel.getOne({ key: "main" }),
-      recommendations:
-        (req.account.role ?? "admin") === "admin"
-          ? await getMenuRecommendations()
-          : [],
-      productTypes:
-        (req.account.role ?? "admin") === "admin"
-          ? await ProductTypeModel.getByCoincidence(
-              {},
-              { sort: { name: 1 }, lean: true },
-            )
-          : [],
-      products:
-        (req.account.role ?? "admin") === "admin"
-          ? await productsWithInventory(
-              await ProductModel.getByCoincidence(
-                {},
-                { sort: { name: 1 }, lean: true },
-              ),
-            )
-          : [],
-      promotions:
-        (req.account.role ?? "admin") === "admin"
-          ? await PromoModel.getByCoincidence(
-              {},
-              { sort: { createdAt: -1 }, lean: true },
-            )
-          : [],
-      sales:
-        (req.account.role ?? "admin") === "admin"
-          ? await OrderModel.getByCoincidence(
-              {},
-              { sort: { createdAt: -1 }, limit: 100, lean: true },
-            )
-          : [],
-      movements:
-        (req.account.role ?? "admin") === "admin"
-          ? await StockMovementModel.getByCoincidence(
-              {},
-              { sort: { createdAt: -1 }, limit: 100, lean: true },
-            )
-          : [],
-      events:
-        (req.account.role ?? "admin") === "admin"
-          ? await EventModel.getByCoincidence(
-              {},
-              { sort: { starts: 1 }, lean: true },
-            )
-          : [],
+      settings,
+      recommendations,
+      productTypes,
+      products,
+      promotions,
+      sales,
+      movements,
+      events,
     });
+  };
   return { health, deployment, ready, menu, workspace };
 }
 

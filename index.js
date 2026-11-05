@@ -3,6 +3,7 @@ import { registeredModels } from "./models/models.js";
 import { createServer } from "node:http";
 import connectDatabase from "./db/db.js";
 import { createApp } from "./app.js";
+import { initializeQueryIndexes } from "./db/indexes.js";
 import { initializeProductTypes } from "./services/product-types.js";
 import { startLocalMongo } from "./db/local-mongo.js";
 import { attachOrderSockets } from "./services/sockets.js";
@@ -33,6 +34,7 @@ try {
     );
   await Promise.all(registeredModels.map((model) => model.initialize()));
   await initializeProductTypes();
+  await initializeQueryIndexes();
   if (config.production) await assertProductionAccounts();
   const app = createApp({
     uri,

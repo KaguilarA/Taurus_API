@@ -5,7 +5,7 @@ import { salesRanking } from "./sales-report.js";
 import { productsWithInventory } from "./inventory.js";
 
 const publicFields =
-  "name description image category drinkType inventory price prices featured productType bottleMl";
+  "name description image category drinkType price prices featured productType bottleMl";
 const drinkTypes = new Set(["all", "alcoholic", "non_alcoholic"]);
 
 function parameter(value, fallback) {

@@ -1,5 +1,7 @@
 # Project rules
 
+1. **Performance first, with correctness and security preserved.** Measure critical endpoints before and after changes. Run independent reads concurrently outside transactions, project only needed fields, use lean reads and query-aligned indexes, bound lists and payloads, and avoid repeated work. Never parallelize operations on the same transaction session, cache private data across users, or sacrifice inventory/payment consistency for speed. Keep regression checks for permissions and concurrent operations.
+
 - Do more with less: reuse existing entities, controllers and domain operations across features. Split responsibilities when useful; do not duplicate business logic.
 
 - The backend must use the existing `models/`, `routes/`, `controllers/`, `api/` and `middlewares/` structure. Extend existing entities and controllers; never introduce a parallel application or duplicate model registry.
