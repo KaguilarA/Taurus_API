@@ -244,7 +244,12 @@ test("archiva duplicados de una instalación v1 sin reemplazar el saldo canónic
     legacyCatalog: { stock: 17, minimum: 3 },
   };
   await OwlCollection("products").insertOne(product);
-  await ProductStockModel.save({ owner: product._id, stock: 12, minimum: 3 });
+  await ProductStockModel.save({
+    owner: product._id,
+    unit: "unit",
+    stock: 12,
+    minimum: 3,
+  });
   await assert.rejects(() => migrateCatalog(), /MAINTENANCE_MODE/);
   await migrateCatalog({ maintenance: true });
   const stored = await OwlCollection("products").findOne({ _id: product._id });
@@ -385,7 +390,7 @@ test("snacks consumen unidades, no permiten medidas y saldos iguales pertenecen 
     second = (await create()).body;
   assert.equal(await ProductStockModel.countDocuments({ stock: 0 }), 2);
   await assert.rejects(
-    () => ProductStockModel.save({ owner: first._id, stock: 3 }),
+    () => ProductStockModel.save({ owner: first._id, unit: "unit", stock: 3 }),
     (error) => error.code === 11000,
   );
   await admin

@@ -33,10 +33,11 @@ export function createProductController() {
         { $inc: { revision: 1 } },
         { session },
       );
-      const [product] = await ProductModel.saveMany([data], { session });
+      const { inventory, ...productData } = data;
+      const [product] = await ProductModel.saveMany([productData], { session });
       if (data.inventory !== "none")
         await ProductStockModel.saveMany(
-          [{ owner: product._id, stock: 0, minimum }],
+          [{ owner: product._id, unit: inventory, stock: 0, minimum }],
           { session },
         );
       return (await productsWithInventory([product.toObject()], session))[0];
@@ -49,7 +50,11 @@ export function createProductController() {
       const data = productInput(req.body, type);
       const current = await ProductModel.getById(req.params.id, { session });
       if (!current) throw new Problem("Producto no encontrado.", 404);
-      if (current.inventory !== data.inventory)
+      const [currentView] = await productsWithInventory(
+        [current.toObject()],
+        session,
+      );
+      if (currentView.inventory !== data.inventory)
         throw new Problem(
           "El tipo de inventario no puede cambiar. Archiva el producto y crea otro.",
         );
@@ -66,7 +71,8 @@ export function createProductController() {
         );
         if (!stock) throw new Problem("Inventario no configurado.", 409);
       }
-      const product = await ProductModel.update(current._id, data, {
+      const { inventory, ...productData } = data;
+      const product = await ProductModel.update(current._id, productData, {
         session,
         runValidators: true,
       });
@@ -88,7 +94,7 @@ export function createProductController() {
             productId: String(product._id),
             productName: product.name,
             delta,
-            unit: product.inventory,
+            unit: stock.unit,
             reason,
             balance: stock.stock,
           },
@@ -121,17 +127,18 @@ export function createProductController() {
       });
       if (!current) throw new Problem("Tipo de producto no encontrado.", 404);
       const data = productTypeInput(req.body, current);
-      const incompatible = await ProductModel.exists(
-        {
-          productType: current._id,
-          $or: [
-            { inventory: { $nin: data.inventoryModes } },
-            ...(data.requiresDrinkType
-              ? [{ drinkType: { $nin: ["alcoholic", "non_alcoholic"] } }]
-              : []),
-          ],
-        },
-        { session },
+      const products = await productsWithInventory(
+        await ProductModel.getByCoincidence(
+          { productType: current._id },
+          { session, lean: true },
+        ),
+        session,
+      );
+      const incompatible = products.some(
+        (product) =>
+          !data.inventoryModes.includes(product.inventory) ||
+          (data.requiresDrinkType &&
+            !["alcoholic", "non_alcoholic"].includes(product.drinkType)),
       );
       if (incompatible)
         throw new Problem(

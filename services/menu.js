@@ -2,6 +2,7 @@ import { OwlTransaction, OwlIsValidId } from "owl-expressjs-utils";
 import { ProductModel, ProductTypeModel } from "../models/models.js";
 import { Problem } from "./validation.js";
 import { salesRanking } from "./sales-report.js";
+import { productsWithInventory } from "./inventory.js";
 
 const publicFields =
   "name description image category drinkType inventory price prices featured productType bottleMl";
@@ -78,13 +79,16 @@ export async function getMenuPage(parameters = {}) {
       });
       const pageCount = Math.ceil(total / query.pageSize);
       const page = Math.min(query.page, Math.max(1, pageCount));
-      const items = await ProductModel.getByCoincidence(query.filter, {
+      const storedItems = await ProductModel.getByCoincidence(query.filter, {
         select: publicFields,
         sort: { name: 1, _id: 1 },
         skip: (page - 1) * query.pageSize,
         limit: query.pageSize,
         session,
         lean: true,
+      });
+      const items = await productsWithInventory(storedItems, session, {
+        publicOnly: true,
       });
       return { items, total, page, pageSize: query.pageSize, pageCount };
     },
@@ -102,7 +106,9 @@ export async function getMenuProduct(id) {
     !(await ProductTypeModel.exists({ code: product.category, active: true }))
   )
     throw new Problem("Tipo de producto no disponible.", 404);
-  return product;
+  return (
+    await productsWithInventory([product], undefined, { publicOnly: true })
+  )[0];
 }
 
 export async function getMenuRecommendations() {
@@ -112,7 +118,7 @@ export async function getMenuRecommendations() {
     { active: true },
     { select: "code", lean: true },
   );
-  const products = await ProductModel.getByCoincidence(
+  const storedProducts = await ProductModel.getByCoincidence(
     {
       active: true,
       category: { $in: activeTypes.map((type) => type.code) },
@@ -120,6 +126,9 @@ export async function getMenuRecommendations() {
     },
     { select: publicFields, lean: true },
   );
+  const products = await productsWithInventory(storedProducts, undefined, {
+    publicOnly: true,
+  });
   const byId = new Map(
     products.map((product) => [String(product._id), product]),
   );

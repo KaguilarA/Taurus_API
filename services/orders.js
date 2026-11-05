@@ -1,4 +1,4 @@
-import { changeStock } from "./inventory.js";
+import { changeStock, productsWithInventory } from "./inventory.js";
 import { productTypeFor } from "./product-types.js";
 import { OwlIsValidId } from "owl-expressjs-utils";
 import {
@@ -27,14 +27,18 @@ export async function reserveItems(items, session) {
   for (const input of items) {
     if (!input || !OwlIsValidId(input.productId))
       throw new Problem("Producto inválido.");
-    const product = await ProductModel.getOne(
+    const storedProduct = await ProductModel.getOne(
       {
         _id: input.productId,
         active: true,
       },
       { session: session },
     );
-    if (!product) throw new Problem("Producto no disponible.", 409);
+    if (!storedProduct) throw new Problem("Producto no disponible.", 409);
+    const [product] = await productsWithInventory(
+      [storedProduct.toObject()],
+      session,
+    );
     const type = await productTypeFor(
       { productType: product.productType, category: product.category },
       session,

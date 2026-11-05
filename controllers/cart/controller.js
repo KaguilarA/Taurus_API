@@ -443,7 +443,7 @@ export function createCartController({ origin, production } = {}) {
                 productId: item.productId,
                 productName: item.name,
                 delta: item.consumed,
-                unit: product.inventory,
+                unit: stock.unit,
                 reason: `Anulación: ${reason}`,
                 saleId: String(sale._id),
                 balance: stock.stock,

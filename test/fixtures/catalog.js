@@ -19,13 +19,14 @@ export async function saveProduct(data, options = {}) {
     { ...fields, productType: type._id },
     options,
   );
-  if (product.inventory !== "none")
+  if (fields.inventory !== "none")
     await ProductStockModel.save(
-      { owner: product._id, stock, minimum },
+      { owner: product._id, unit: fields.inventory, stock, minimum },
       options,
     );
   // Opening balances returned only to fixture movement generation; never stored on Product.
   product.stock = stock;
+  product.inventory = fields.inventory;
   return product;
 }
 export async function saveProducts(data, options) {

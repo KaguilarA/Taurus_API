@@ -4,6 +4,7 @@ import { ModelName as ProductModelName } from "../product/model.js";
 export const ModelName = "ProductStock";
 
 const model = {
+  unit: { type: String, enum: ["unit", "ml"], required: true },
   stock: {
     type: Number,
     required: true,

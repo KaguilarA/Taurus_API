@@ -1,4 +1,5 @@
 import { migrateCatalog } from "./db/migrate-catalog.js";
+import { auditDatabaseIntegrity } from "./db/integrity.js";
 import { OwlAdminCommand, OwlMongoClose } from "owl-expressjs-utils";
 import { registeredModels } from "./models/models.js";
 import { migrateLegacyCollections } from "./db/migrate-legacy.js";
@@ -37,6 +38,10 @@ try {
   await migrateCatalog();
   await Promise.all(registeredModels.map((model) => model.initialize()));
   await seed();
+  console.log(
+    "Database integrity audit:",
+    JSON.stringify(await auditDatabaseIntegrity()),
+  );
   if (config.production) await assertProductionAccounts();
   const app = createApp({
     uri,

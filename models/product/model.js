@@ -16,7 +16,6 @@ const model = {
       type: String,
       enum: ["non_alcoholic", "alcoholic", ""],
     },
-    inventory: { type: String, enum: ["none", "unit", "ml"], required: true },
     price: { type: Number, min: 0, required: true },
     prices: { large: Number, small: Number, shot: Number },
     bottleMl: { type: Number, default: 0 },

@@ -291,7 +291,7 @@ test("promociones futuras, vencidas y pausadas no se publican", async () => {
 test("archivado conserva historial y bloquea ventas nuevas; reportes respetan fechas", async () => {
   await admin
     .put(`/api/admin/products/${food.id}`)
-    .send({ ...food.toObject(), active: false })
+    .send({ ...food.toObject(), inventory: "none", active: false })
     .expect(200);
   await admin
     .post("/api/admin/sales")
