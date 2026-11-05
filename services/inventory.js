@@ -28,6 +28,7 @@ export async function productsWithInventory(
   session,
   { publicOnly = false } = {},
 ) {
+  if (!products.length) return [];
   const stocks = await ProductStockModel.getByCoincidence(
     { owner: { $in: products.map((p) => p._id) } },
     { session, lean: true, ...(publicOnly ? { select: "owner unit" } : {}) },
