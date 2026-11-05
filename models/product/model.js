@@ -1,5 +1,6 @@
 import { OwlTypes } from "owl-expressjs-utils";
 import { ModelName as StateModelName } from "../state/model.js";
+import { ModelName as ProductTypeModelName } from "../productType/model.js";
 
 export const ModelName = "Product";
 
@@ -9,22 +10,21 @@ const model = {
     image: String,
     category: {
       type: String,
-      enum: ["food", "drink", "snack"],
       required: true,
     },
     drinkType: {
       type: String,
       enum: ["non_alcoholic", "alcoholic", ""],
-      required() {
-        return this.category === "drink";
-      },
     },
     inventory: { type: String, enum: ["none", "unit", "ml"], required: true },
     price: { type: Number, min: 0, required: true },
     prices: { large: Number, small: Number, shot: Number },
     bottleMl: { type: Number, default: 0 },
-    stock: { type: Number, default: 0, min: 0 },
-    minimum: { type: Number, default: 0, min: 0 },
+    productType: {
+      type: OwlTypes.ObjectId,
+      ref: ProductTypeModelName,
+      required: true,
+    },
     active: { type: Boolean, default: true },
     featured: { type: Boolean, default: false },
   },

@@ -38,35 +38,44 @@ export function image(value = "") {
     throw new Problem("Usa una imagen HTTPS o una ruta local /images/...");
   return value;
 }
-export function productInput(body) {
-  const { category, inventory } = body;
+export function productInput(body, type) {
+  const { inventory } = body;
   if (
-    !["food", "drink", "snack"].includes(category) ||
-    !["none", "unit", "ml"].includes(inventory) ||
-    (["food", "snack"].includes(category) && inventory !== "none") ||
-    (category === "drink" && inventory === "none")
+    !type ||
+    !type.inventoryModes.includes(inventory) ||
+    (inventory === "ml" && type.code !== "liquor")
   )
     throw new Problem(
-      "Comidas y snacks sin inventario; bebidas por unidad o mililitros.",
+      "El modo de inventario no corresponde al tipo de producto.",
     );
   if (
-    (category === "drink" || body.drinkType) &&
+    (type.requiresDrinkType || body.drinkType) &&
     !["non_alcoholic", "alcoholic"].includes(body.drinkType)
   )
     throw new Problem("Seleccioná una subcategoría válida para la bebida.");
+  let bottleMl = 0;
+  if (inventory === "ml") {
+    bottleMl =
+      body.bottleLiters !== undefined
+        ? number(body.bottleLiters, "Capacidad en litros", 0.001, false, 100) *
+          1000
+        : number(body.bottleMl, "Botella", 1, true, 100000);
+    if (Math.abs(bottleMl - Math.round(bottleMl)) > 1e-7)
+      throw new Problem("La capacidad debe expresarse en mililitros enteros.");
+    bottleMl = Math.round(bottleMl);
+    if (body.bottleMl !== undefined && body.bottleMl !== bottleMl)
+      throw new Problem("Las capacidades en litros y mililitros no coinciden.");
+  }
   const result = {
-    drinkType: category === "drink" ? (body.drinkType ?? "") : "",
+    productType: type._id,
+    drinkType: type.requiresDrinkType ? (body.drinkType ?? "") : "",
     name: text(body.name, "Nombre", 150, true),
     description: text(body.description ?? "", "Descripción"),
     image: image(body.image),
-    category,
+    category: type.code,
     inventory,
     price: number(body.price, "Precio"),
-    bottleMl:
-      inventory === "ml"
-        ? number(body.bottleMl, "Botella", 1, true, 100000)
-        : 0,
-    minimum: number(body.minimum ?? 0, "Mínimo", 0, true),
+    bottleMl,
     active: body.active !== false,
     featured: body.featured === true,
   };
@@ -86,12 +95,18 @@ export function saleLine(product, input, servings) {
     unitPrice = product.price,
     serving = "unit";
   if (product.inventory === "ml") {
+    if (product.category !== "liquor")
+      throw new Problem("Solo las botellas de licor admiten medidas.");
     serving = input.serving;
     if (!["large", "small", "shot"].includes(serving))
       throw new Problem("Selecciona grande, pequeño o shot.");
     consumed = number(servings[serving], "Medida", 1, true) * quantity;
     unitPrice = product.prices[serving];
-  } else if (product.inventory === "unit") consumed = quantity;
+  } else {
+    if (input.serving !== undefined && input.serving !== "unit")
+      throw new Problem("Solo las botellas de licor admiten medidas.");
+    if (product.inventory === "unit") consumed = quantity;
+  }
   return {
     productId: String(product._id),
     name: product.name,

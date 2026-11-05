@@ -1,4 +1,3 @@
-
 import { OwlModel } from "owl-expressjs-utils";
 import ActionLogData from "./actionLog/model.js";
 import BusinessData from "./business/model.js";
@@ -19,7 +18,9 @@ import UserPermissionData from "./userPermission/model.js";
 
 export const ActionLogModel = OwlModel(ActionLogData.name, ActionLogData.model);
 export const BusinessModel = OwlModel(BusinessData.name, BusinessData.model);
-export const CartModel = OwlModel(CartData.name, CartData.model,[],[],{indexes:CartData.indexes});
+export const CartModel = OwlModel(CartData.name, CartData.model, [], [], {
+  indexes: CartData.indexes,
+});
 export const CartItemModel = OwlModel(CartItemData.name, CartItemData.model);
 export const EmailModel = OwlModel(EmailData.name, EmailData.model);
 export const ImageModel = OwlModel(ImageData.name, ImageData.model);
@@ -79,4 +80,27 @@ export const PasswordResetModel = OwlModel(
 
 export const UserModelName = UserData.name;
 
-export const registeredModels = [ActionLogModel,BusinessModel,CartModel,CartItemModel,EmailModel,ImageModel,PermissionModel,PhoneModel,PromoModel,ProductModel,PromoProductModel,ProductStockModel,ProductTypeModel,StateModel,UserModel,UserPermissionModel,EventModel,OrderModel,StockMovementModel,TableModel,SetupLockModel,PasswordResetModel];
+export const registeredModels = [
+  ActionLogModel,
+  BusinessModel,
+  CartModel,
+  CartItemModel,
+  EmailModel,
+  ImageModel,
+  PermissionModel,
+  PhoneModel,
+  PromoModel,
+  ProductModel,
+  PromoProductModel,
+  ProductStockModel,
+  ProductTypeModel,
+  StateModel,
+  UserModel,
+  UserPermissionModel,
+  EventModel,
+  OrderModel,
+  StockMovementModel,
+  TableModel,
+  SetupLockModel,
+  PasswordResetModel,
+];

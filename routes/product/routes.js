@@ -8,6 +8,9 @@ export function registerProduct(options = {}) {
   const router = Router();
 
   const controller = createProductController(options);
+  router.get("/api/admin/product-types", controller.listTypes);
+  router.post("/api/admin/product-types", controller.registerType);
+  router.put("/api/admin/product-types/:id", controller.updateType);
   router.post("/api/admin/products", controller.register);
   router.put("/api/admin/products/:id", controller.update);
   router.post("/api/admin/products/:id/stock", controller.adjustStock);
@@ -20,6 +23,7 @@ export default registerProduct;
 export function publicProductRoutes() {
   const router = Router();
   const controller = createPublicProductController();
+  router.get("/api/public/product-types", controller.types);
   router.get("/api/public/menu", controller.list);
   router.get("/api/public/menu/:id", controller.detail);
   return router;

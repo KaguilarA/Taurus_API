@@ -6,7 +6,7 @@ export async function hasStaffOrders(role) {
   const filter = { status: "open", billId: { $exists: true } };
   if (role !== "kitchen") return !!(await OrderModel.exists(filter));
   const orders = await OrderModel.getByCoincidence(
-    { ...filter, "items.category": "food", orderStatus: { $ne: "delivered" } },
+    { ...filter, orderStatus: { $ne: "delivered" } },
     { select: "items orderStatus", lean: true },
   );
   return orders.some(needsKitchen);

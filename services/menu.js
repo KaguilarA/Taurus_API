@@ -1,10 +1,10 @@
 import { OwlTransaction, OwlIsValidId } from "owl-expressjs-utils";
-import { ProductModel } from "../models/models.js";
+import { ProductModel, ProductTypeModel } from "../models/models.js";
 import { Problem } from "./validation.js";
+import { salesRanking } from "./sales-report.js";
 
 const publicFields =
-  "name description image category drinkType inventory price prices featured";
-const categories = new Set(["all", "food", "drink", "snack"]);
+  "name description image category drinkType inventory price prices featured productType bottleMl";
 const drinkTypes = new Set(["all", "alcoholic", "non_alcoholic"]);
 
 function parameter(value, fallback) {
@@ -40,18 +40,23 @@ export function searchPattern(query) {
     )
     .join("");
 }
-export function menuQuery(parameters = {}) {
+export async function menuQuery(parameters = {}, session) {
   const category = parameter(parameters.category, "all");
+  const types = await ProductTypeModel.getByCoincidence(
+    { active: true },
+    { session, lean: true },
+  );
+  const selectedType = types.find((t) => t.code === category);
   const drinkType = parameter(parameters.drinkType, "all");
   const search = parameter(parameters.q, "");
   if (
-    !categories.has(category) ||
+    (category !== "all" && !selectedType) ||
     !drinkTypes.has(drinkType) ||
     search.length > 100 ||
-    (drinkType !== "all" && category !== "drink")
+    (drinkType !== "all" && !selectedType?.requiresDrinkType)
   )
     throw new Problem("Filtros del menú inválidos.");
-  const filter = { active: true };
+  const filter = { active: true, category: { $in: types.map((t) => t.code) } };
   if (category !== "all") filter.category = category;
   if (drinkType !== "all") filter.drinkType = drinkType;
   if (search)
@@ -65,9 +70,9 @@ export function menuQuery(parameters = {}) {
   };
 }
 export async function getMenuPage(parameters = {}) {
-  const query = menuQuery(parameters);
   return OwlTransaction(
     async (session) => {
+      const query = await menuQuery(parameters, session);
       const total = await ProductModel.countDocuments(query.filter, {
         session,
       });
@@ -93,5 +98,57 @@ export async function getMenuProduct(id) {
     { select: publicFields, lean: true },
   );
   if (!product) throw new Problem("Este producto ya no está disponible.", 404);
+  if (
+    !(await ProductTypeModel.exists({ code: product.category, active: true }))
+  )
+    throw new Problem("Tipo de producto no disponible.", 404);
   return product;
+}
+
+export async function getMenuRecommendations() {
+  const ranking = await salesRanking();
+  if (!ranking.length) return [];
+  const activeTypes = await ProductTypeModel.getByCoincidence(
+    { active: true },
+    { select: "code", lean: true },
+  );
+  const products = await ProductModel.getByCoincidence(
+    {
+      active: true,
+      category: { $in: activeTypes.map((type) => type.code) },
+      _id: { $in: ranking.map((row) => row._id.productId) },
+    },
+    { select: publicFields, lean: true },
+  );
+  const byId = new Map(
+    products.map((product) => [String(product._id), product]),
+  );
+  const totals = new Map();
+  for (const row of ranking) {
+    const id = String(row._id.productId);
+    const previous = totals.get(id);
+    totals.set(id, {
+      id,
+      quantity: (previous?.quantity ?? 0) + row.quantity,
+      revenue: (previous?.revenue ?? 0) + row.revenue,
+    });
+  }
+  const ordered = [...totals.values()].sort(
+    (a, b) =>
+      b.quantity - a.quantity ||
+      b.revenue - a.revenue ||
+      a.id.localeCompare(b.id),
+  );
+  const counts = new Map();
+  return ordered.flatMap(({ id }) => {
+    const product = byId.get(id);
+    if (!product) return [];
+    const category = product.category === "liquor" ? "drink" : product.category;
+    if (!["food", "drink", "snack"].includes(category)) return [];
+    const count = counts.get(category) ?? 0;
+    if (count >= 2) return [];
+    counts.set(category, count + 1);
+    // Public projection intentionally excludes quantities, revenue and inventory.
+    return [product];
+  });
 }
