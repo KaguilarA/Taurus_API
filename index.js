@@ -1,12 +1,9 @@
-import { migrateCatalog } from "./db/migrate-catalog.js";
-import { auditDatabaseIntegrity } from "./db/integrity.js";
 import { OwlAdminCommand, OwlMongoClose } from "owl-expressjs-utils";
 import { registeredModels } from "./models/models.js";
-import { migrateLegacyCollections } from "./db/migrate-legacy.js";
 import { createServer } from "node:http";
 import connectDatabase from "./db/db.js";
 import { createApp } from "./app.js";
-import { seed } from "./db/migrations.js";
+import { initializeProductTypes } from "./services/product-types.js";
 import { startLocalMongo } from "./db/local-mongo.js";
 import { attachOrderSockets } from "./services/sockets.js";
 import {
@@ -34,14 +31,8 @@ try {
     throw new ConfigurationError(
       "MongoDB debe ser replica set o Atlas para transacciones y sockets.",
     );
-  await migrateLegacyCollections();
-  await migrateCatalog();
   await Promise.all(registeredModels.map((model) => model.initialize()));
-  await seed();
-  console.log(
-    "Database integrity audit:",
-    JSON.stringify(await auditDatabaseIntegrity()),
-  );
+  await initializeProductTypes();
   if (config.production) await assertProductionAccounts();
   const app = createApp({
     uri,

@@ -1,4 +1,8 @@
-import { OwlIsValidId } from "owl-expressjs-utils";
+import {
+  OwlIsValidId,
+  OwlTransaction,
+  OwlCollection,
+} from "owl-expressjs-utils";
 import { ProductTypeModel } from "../models/models.js";
 import { Problem, text } from "./validation.js";
 
@@ -50,4 +54,34 @@ export function productTypeInput(body, current) {
     kitchen: body.kitchen === true,
     requiresDrinkType: body.requiresDrinkType === true,
   };
+}
+
+export const initialProductTypes = [
+  { code: "food", name: "Comidas", inventoryModes: ["none"], kitchen: true },
+  {
+    code: "drink",
+    name: "Bebidas",
+    inventoryModes: ["unit"],
+    requiresDrinkType: true,
+  },
+  { code: "snack", name: "Snacks", inventoryModes: ["unit"] },
+  { code: "liquor", name: "Botellas de licor", inventoryModes: ["ml"] },
+];
+// Initial catalog for a fresh installation. Existing dynamic catalogs are left intact.
+export async function initializeProductTypes() {
+  await OwlCollection("productstocks").createIndex(
+    { owner: 1 },
+    { unique: true },
+  );
+  await OwlCollection("producttypes").createIndex(
+    { code: 1 },
+    { unique: true, sparse: true },
+  );
+  await OwlTransaction(async (session) => {
+    if (await ProductTypeModel.exists({}, { session })) return;
+    await ProductTypeModel.saveMany(initialProductTypes, {
+      session,
+      ordered: true,
+    });
+  });
 }
