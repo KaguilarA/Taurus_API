@@ -3,7 +3,7 @@ import {
   ProductStockModel,
   ProductTypeModel,
 } from "../../models/models.js";
-import { migrateCatalog } from "../../db/migrate-catalog.js";
+import { initializeProductTypes } from "../../services/product-types.js";
 
 export async function saveProduct(data, options = {}) {
   const { stock = 0, minimum = 0, ...fields } = data;
@@ -37,4 +37,4 @@ export async function saveProducts(data, options) {
 export async function stockFor(id) {
   return (await ProductStockModel.getOne({ owner: id }))?.stock ?? 0;
 }
-export const initializeCatalog = () => migrateCatalog({ maintenance: true });
+export const initializeCatalog = () => initializeProductTypes();

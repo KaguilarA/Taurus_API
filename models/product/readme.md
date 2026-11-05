@@ -8,4 +8,4 @@ Las botellas de licor (`liquor`, inventario `ml`) guardan capacidad en `bottleMl
 
 Saldo, mínimo y unidad pertenecen exclusivamente a `ProductStock`. Los valores antiguos se archivan en `legacyCatalog`; los campos `stock`, `minimum`, `inventory` y `type` se retiran del documento activo después de preservar su contenido. No se utilizan para vender o ajustar inventario. Las respuestas administrativas incluyen el saldo de `ProductStock`; la carta pública no lo expone.
 
-`state` se conserva por compatibilidad. El array histórico `type` se migra a una referencia única; referencias múltiples o contradicciones detienen la migración.
+`state` remains available for compatibility. Historical source values in `legacyCatalog` are read-only archives and are not operational inventory.

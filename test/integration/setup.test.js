@@ -17,7 +17,6 @@ import { MongoMemoryReplSet } from "mongodb-memory-server";
 import { createApp } from "../../app.js";
 
 import { seed } from "../fixtures/seed.js";
-import { seed as migrateStoredBusiness } from "../../db/migrations.js";
 
 let replica, app, second;
 const password = "First-owner-password-2026!";
@@ -187,23 +186,4 @@ test("el administrador se registra antes de completar business y la carta usa es
     (await browser.get("/api/setup/status")).body.businessRequired,
     false,
   );
-});
-
-test("la migración conserva el perfil antiguo almacenado sin volver a quemar datos", async () => {
-  await BusinessModel.deleteMany({});
-  await OwlCollection("restaurantsettings").insertOne({
-    key: "main",
-    name: "Negocio existente",
-    currency: "EUR",
-    accent: "#123456",
-    phone: "9999-1111",
-    servings: { large: 80, small: 40, shot: 20 },
-  });
-  await migrateStoredBusiness();
-  await migrateStoredBusiness();
-  const business = await BusinessModel.getOne({ key: "main" });
-  assert.equal(business.name, "Negocio existente");
-  assert.equal(business.phone, "9999-1111");
-  assert.equal(await BusinessModel.countDocuments(), 1);
-  assert.equal(await OwlCollection("restaurantsettings").countDocuments(), 1);
 });

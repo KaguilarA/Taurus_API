@@ -65,13 +65,9 @@ Para una botella usá `category: "liquor"`, `inventory: "ml"`, `bottleLiters: 0.
 
 Se retiraron las rutas y controladores antiguos sin uso de `api/routes` y `api/controllers`, junto con el controlador base y el adaptador de guardado obsoletos. `api/api.js` continúa montando las rutas activas. Las colecciones y entidades históricas se conservan para proteger referencias y datos almacenados.
 
-### Migración desde la implementación anterior
+### Application startup
 
-La migración de catálogo al arrancar reutiliza `producttypes` y `productstocks`, copia saldos y mínimos, enlaza productos y reclasifica bebidas en mililitros como botellas de licor. Los snacks sin inventario pasan a unidades con saldo cero, salvo que ya exista saldo almacenado. Conserva los valores de origen en `legacyCatalog` y todo el historial; retira `stock`, `minimum` y `type` del documento activo después de archivarlos. La actualización v2 también limpia instalaciones que ya migraron, sin volver a importar saldos antiguos. Retira el índice único incorrecto sobre el saldo y exige unicidad por producto. Saldos contradictorios, inventarios duplicados, referencias ambiguas o capacidades inválidas detienen la migración sin sobrescribir datos. Una marca persistente evita volver a copiar saldos antiguos. Una base con productos existentes exige `MAINTENANCE_MODE=true` antes de migrar, siguiendo el procedimiento descrito a continuación.
-
-Las colecciones paralelas `restaurant*` se copian a las entidades canónicas (`User`, `Product`, `Promo`, `Cart`, etc.) en **una sola transacción**. Se conservan IDs, hashes, timestamps, referencias, inventario y pagos. Las fuentes no se borran. Una marca persistente evita volver a copiar datos antiguos; cualquier conflicto revierte la migración completa sin sobrescribir registros.
-
-Antes de actualizar una instalación anterior, desplegá la protección de mantenimiento y activá `MAINTENANCE_MODE=true` en esa versión. Esto bloquea solicitudes de clientes mientras continúan los checks operativos. Después desplegá esta versión: al iniciar ejecuta la migración y verifica las cuentas. Comprobá la revisión y `/api/ready`, y desactivá mantenimiento. Si hay datos anteriores y no se activó mantenimiento, el arranque rechaza migrarlos automáticamente. Una instalación nueva no necesita esta migración.
+Startup initializes the registered models and indexes, creates the initial product types only for an empty catalog, and checks production account configuration. Completed data migrations and one-time normalization tools have been removed. Existing records and archived source values remain untouched.
 
 ## API
 
