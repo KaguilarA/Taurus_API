@@ -5,6 +5,7 @@ import {
 } from "owl-expressjs-utils";
 import { ConfigurationError } from "../config/runtime.js";
 import { isDeepStrictEqual } from "node:util";
+import { normalizeInventory } from "./normalize-inventory.js";
 
 export const initialProductTypes = [
   { code: "food", name: "Comidas", inventoryModes: ["none"], kitchen: true },
@@ -246,6 +247,7 @@ export async function migrateCatalog({
     { unique: true, sparse: true },
   );
   await archiveCatalogSources({ maintenance });
+  await normalizeInventory({ maintenance });
 }
 
 // Upgrade installations that already ran v1 without re-importing stale balances.
