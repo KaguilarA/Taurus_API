@@ -2,6 +2,8 @@
 
 Este paquete contiene dos despliegues independientes:
 
+El despliegue activo usa GitHub Actions: `master` ejecuta las pruebas, construye el artefacto y publica la rama `production`. Render y Cloudflare Pages siguen esa rama; los jobs verifican la revisión pública y `/api/ready` antes de marcar el despliegue como correcto. Las variables `DEPLOYMENT_URL` de cada repositorio contienen los orígenes públicos. En Render, conservar `branch: production` y `autoDeployTrigger: commit` para recibir los artefactos ya validados.
+
 - `backend/`: API Express y servidor Socket.IO para **Render Free**. No contiene Angular ni sus fuentes, imágenes o HTML.
 - `frontend/`: Angular compilado para **Cloudflare Pages Free**. Contiene un gateway pequeño que reenvía `/api` y `/api/socket.io` al backend; toda la lógica de negocio y el acceso a MongoDB se ejecutan en Render.
 
@@ -59,7 +61,7 @@ El frontend y backend se pueden actualizar por separado. Si cambia la URL de Ren
 
 Render Free se suspende después de 15 minutos sin tráfico y puede tardar cerca de un minuto en despertar. Pages Functions Free comparte el cupo de 100.000 solicitudes diarias de Workers; los archivos estáticos no consumen ese cupo. Son planes útiles para una prueba pública, con límites de disponibilidad y uso. Fuentes: [Render Free](https://render.com/docs/free), [Pages Functions](https://developers.cloudflare.com/pages/functions/pricing/), [WebSockets](https://developers.cloudflare.com/workers/examples/websockets/).
 
-La Texas Tango incluida es una muestra de uso personal. Antes de publicar comercialmente, reemplazar `public/fonts/texas-tango.otf` en el frontend fuente por el archivo con licencia web del autor y generar otro paquete. Las demás fuentes incluyen sus licencias OFL. Esta generación no cambia contraseñas ni datos de la base local.
+El frontend publica Bricolage Grotesque y Space Grotesk con sus licencias OFL. La muestra personal de Texas Tango está excluida del build y no se carga en el sitio. Esta generación no cambia contraseñas ni datos de la base local.
 
 `release-manifest.json` registra hashes de todos los archivos del paquete. La carpeta `backend/` no contiene `.env`, datos de MongoDB ni frontend.
 

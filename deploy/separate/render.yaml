@@ -2,11 +2,12 @@ services:
   - type: web
     name: felos-api
     runtime: node
+    branch: production
     plan: free
     buildCommand: npm ci --omit=dev --ignore-scripts
     startCommand: npm start
     healthCheckPath: /api/ready
-    autoDeployTrigger: off
+    autoDeployTrigger: commit
     envVars:
       - key: NODE_VERSION
         value: "24"

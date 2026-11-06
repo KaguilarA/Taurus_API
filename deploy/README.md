@@ -35,7 +35,7 @@ Para rotar una cuenta existente, ejecutá `npm run account:password` desde una c
 
 ## Fuentes y contenido
 
-Las fuentes se sirven desde `web/fonts`. **Texas Tango incluida es la versión de muestra de uso personal**; antes de publicar el sitio comercial, reemplazá `web/fonts/texas-tango.otf` por el archivo autorizado por una licencia Website del autor. Su aviso original está junto a la fuente. [Licencia del autor](https://billyargel.com/product/texas-tango-bold/). Bricolage Grotesque y Space Grotesk incluyen sus licencias OFL.
+Las fuentes se sirven desde `web/fonts`. El build publica Bricolage Grotesque y Space Grotesk con sus licencias OFL y excluye la muestra de Texas Tango de uso personal. No se habilita una fuente comercial adicional sin su licencia web.
 
 No se copian ventas de prueba al paquete. Confirmá el catálogo, los teléfonos y las condiciones de eventos antes de anunciar la dirección. Las imágenes que se agreguen posteriormente deben estar en el código desplegado o en almacenamiento externo persistente; el disco del plan Free no conserva archivos subidos durante la ejecución.
 

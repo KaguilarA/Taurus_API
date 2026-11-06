@@ -138,7 +138,7 @@ No se permite el modo demo ni el autostart de MongoDB local en producción. Las 
 
 Para rotar una contraseña existente se usa `npm run account:password` con `DB_HOST`, `RESET_USERNAME` y `RESET_PASSWORD` en el entorno. El comando conserva el hashing de OWL e invalida las sesiones HTTP y sockets anteriores. No ejecutar sobre la base local salvo que se quiera cambiar deliberadamente su acceso.
 
-Render Free se suspende después de 15 minutos sin tráfico y no ofrece continuidad de producción; sirve para una prueba pública gratuita. Consultar la guía del paquete antes de publicar el QR del negocio. La versión de muestra de Texas Tango debe reemplazarse por una copia con licencia web para la publicación comercial.
+Render Free puede suspenderse por inactividad y no garantiza continuidad; la acción de mantenimiento reduce los periodos sin tráfico. El frontend publica únicamente las fuentes OFL incluidas y excluye la muestra de uso personal. Consultar la guía del paquete para configurar el dominio público y los QR del negocio.
 
 ## Imágenes en Cloudinary
 
