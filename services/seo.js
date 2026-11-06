@@ -123,7 +123,7 @@ export async function getSeoSitemap(origin) {
     const products = await ProductModel.getByCoincidence(filter, {
       select: "_id",
       limit: 1000,
-      sort: { _id: 1 },
+      sort: { category: 1, name: 1, _id: 1 },
       lean: true,
     });
     urls.push(
