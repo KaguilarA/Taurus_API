@@ -95,17 +95,21 @@ export async function getMenuPage(parameters = {}) {
     { readConcern: { level: "snapshot" } },
   );
 }
-export async function getMenuProduct(id) {
+export async function getMenuProduct(id, { metadataOnly = false } = {}) {
   if (!OwlIsValidId(id)) throw new Problem("Producto inválido.");
   const product = await ProductModel.getOne(
     { _id: id, active: true },
-    { select: publicFields, lean: true },
+    {
+      select: metadataOnly ? "name description image category" : publicFields,
+      lean: true,
+    },
   );
   if (!product) throw new Problem("Este producto ya no está disponible.", 404);
   if (
     !(await ProductTypeModel.exists({ code: product.category, active: true }))
   )
     throw new Problem("Tipo de producto no disponible.", 404);
+  if (metadataOnly) return product;
   return (
     await productsWithInventory([product], undefined, { publicOnly: true })
   )[0];

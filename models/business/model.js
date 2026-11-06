@@ -20,6 +20,16 @@ const model = {
   showMenuPrices: { type: Boolean, default: true },
   accent: String,
   servings: { large: Number, small: Number, shot: Number },
+  seo: {
+    title: String,
+    description: String,
+    shareTitle: String,
+    shareDescription: String,
+    shareImage: String,
+    locale: String,
+    indexable: Boolean,
+    includeProducts: Boolean,
+  },
   instagramUrl: {
     type: String,
     trim: true,

@@ -210,3 +210,10 @@ Las líneas de pedidos tienen `fulfillmentStatus`: bebidas y snacks usan `pendin
 Facturas PDF/fotos, carga de existencias y precios de compra: ver [documentación de importación](docs/purchase-invoices.md).
 
 Public landing and administrator workspace reads run concurrently when independent. Transactional inventory and payment operations remain sequential within their sessions. Read-only settings use lean objects; public inventory queries project only owner and unit and skip empty product lists. Startup creates additive query indexes for active category/name pagination, order status/history, bill activity and movement history through OWL. Existing documents and indexes remain intact. Do not introduce response caches for inventory, session or payment state. Validate changes with `npm test`, `npm run format:check`, readiness and real endpoint timings; cold starts and network latency must be reported separately from warm requests.
+
+
+## SEO administrable
+
+La configuración SEO se administra por separado en `/api/admin/seo` (GET/PUT, solo administradores) y se guarda en `Business.seo`, sin nuevos modelos ni migraciones destructivas. Actualizar `/api/admin/settings` conserva SEO; actualizar SEO conserva la identidad y configuración del negocio. Los valores vacíos heredan nombre, subtítulo, descripción e imágenes existentes.
+
+`GET /api/seo?path=/` devuelve solo metadatos públicos; admite también `/producto/<id>` con validación de identificador y disponibilidad del producto y categoría. Nunca incluye costos, existencias, cuentas ni sesiones. El origen canónico procede exclusivamente de `FRONTEND_URL`. `GET /api/seo/sitemap` devuelve la portada y hasta 1000 productos activos; puede excluir productos o quedar vacío al desactivar indexación. Las consultas usan proyecciones y lecturas lean mediante OWL, sin calcular inventario para SEO.

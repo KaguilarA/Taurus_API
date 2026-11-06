@@ -1,3 +1,4 @@
+import { getSeoMetadata, getSeoSitemap } from "../../services/seo.js";
 import { productsWithInventory } from "../../services/inventory.js";
 import { getMenuPage, getMenuRecommendations } from "../../services/menu.js";
 import { OwlMongoStatus, OwlMongoCommand } from "owl-expressjs-utils";
@@ -120,7 +121,11 @@ export function createPublicController({
       events,
     });
   };
-  return { health, deployment, ready, menu, workspace };
+  const seo = async (req, res) =>
+    res.json(await getSeoMetadata(origin, req.query.path));
+  const sitemap = async (req, res) =>
+    res.json({ urls: await getSeoSitemap(origin) });
+  return { health, deployment, ready, menu, workspace, seo, sitemap };
 }
 
 export default createPublicController;
