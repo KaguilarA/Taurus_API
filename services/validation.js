@@ -87,6 +87,8 @@ export function productInput(body, type) {
       ]),
     );
   else result.prices = {};
+  if (body.purchasePrice !== undefined && body.purchasePrice !== null)
+    result.purchasePrice = number(body.purchasePrice, "Precio de compra", 0);
   return result;
 }
 export function saleLine(product, input, servings) {

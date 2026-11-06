@@ -40,10 +40,14 @@ export async function productsWithInventory(
       minimum: legacyMinimum,
       inventory: legacyInventory,
       legacyCatalog,
+      purchasePrice,
+      supplierAliases,
       type,
       ...product
     }) => ({
       ...product,
+      ...(!publicOnly && purchasePrice !== undefined ? { purchasePrice } : {}),
+      ...(!publicOnly && supplierAliases?.length ? { supplierAliases } : {}),
       inventory: balances.get(String(product._id))?.unit ?? "none",
       ...(!publicOnly
         ? {
