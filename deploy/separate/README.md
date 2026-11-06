@@ -2,7 +2,7 @@
 
 Este paquete contiene dos despliegues independientes:
 
-El despliegue activo usa GitHub Actions: `master` ejecuta las pruebas, construye el artefacto y publica la rama `production`. Render y Cloudflare Pages siguen esa rama; GitHub Actions no hace llamadas HTTP a producción ni chequeos periódicos. La revisión pública y `/api/ready` se verifican fuera de Actions. En Render, conservar `branch: production` y `autoDeployTrigger: commit` para recibir los artefactos ya validados.
+El despliegue activo usa GitHub Actions: `master` ejecuta las pruebas, construye el artefacto y publica la rama `production`. Render y Cloudflare Pages siguen esa rama; El workflow del backend también comprueba la salud y la ruta pública cada 10 minutos y solicita un redeploy si fallan, mediante `RENDER_DEPLOY_HOOK` guardado como secreto. Los cron de GitHub pueden retrasarse u omitirse y no garantizan disponibilidad continua. En Render, conservar `branch: production` y `autoDeployTrigger: commit` para recibir los artefactos ya validados.
 
 - `backend/`: API Express y servidor Socket.IO para **Render Free**. No contiene Angular ni sus fuentes, imágenes o HTML.
 - `frontend/`: Angular compilado para **Cloudflare Pages Free**. Contiene un gateway pequeño que reenvía `/api` y `/api/socket.io` al backend; toda la lógica de negocio y el acceso a MongoDB se ejecutan en Render.

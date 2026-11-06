@@ -162,11 +162,11 @@ Los módulos de pagos, inventario y pedidos conservan validaciones y transaccion
 
 ## Despliegues con GitHub Actions
 
-El workflow `keep-alive.yml`, autorizado para el backend, consulta `/api/health` cada 10 minutos y admite ejecución manual. Despierta el servicio por HTTP sin recompilar, reiniciar procesos, rotar sesiones ni escribir en la base. El cron de GitHub funciona como mejor esfuerzo y puede retrasarse. El frontend no tiene chequeos periódicos.
+El workflow `keep-alive.yml`, autorizado para el backend, consulta `/api/health` y la ruta pública `/api/setup/status` cada 10 minutos (minutos 3, 13, 23, 33, 43 y 53). Si falla cualquiera, solicita un redeploy mediante el secreto `RENDER_DEPLOY_HOOK` y comprueba la recuperación. Usa las variables `DEPLOYMENT_URL` y `PUBLIC_FRONTEND_URL`. La ejecución manual permite `recover: true` para probar el redeploy. El cron de GitHub es de mejor esfuerzo: puede retrasarse u omitirse y no garantiza disponibilidad continua de Render gratuito. El frontend no tiene un workflow periódico propio.
 
 El workflow `.github/workflows/deploy.yml` valida los pull requests y pushes a `master` y `dev`. Las ramas de trabajo se crean desde `dev`. Solo los pushes a `master` o una ejecucion manual desde `master` pueden publicar. Si alguna prueba falla, no se actualiza produccion.
 
-Actions publica un artefacto validado en la rama `production`, sin secretos ni dependencias instaladas. La rama conserva el historial de despliegues y contiene `deployment.json` con la revision fuente. El job de publicacion tiene `contents: write`; las pruebas solo tienen lectura. No se necesitan tokens personales ni claves de los proveedores en GitHub.
+Actions publica un artefacto validado en la rama `production`, sin secretos ni dependencias instaladas. La rama conserva el historial de despliegues y contiene `deployment.json` con la revision fuente. El job de publicacion tiene `contents: write`; las pruebas solo tienen lectura. La publicación del artefacto usa GITHUB_TOKEN; solo el workflow de recuperación recibe el hook de Render cifrado como secreto.
 
 Configurar la variable de repositorio `DEPLOYMENT_URL` con el origen HTTPS publico. El workflow espera a que el proveedor sirva la misma revision y a que `/api/ready` responda correctamente. Un timeout marca el workflow como fallido; no se presenta una publicacion pendiente como exitosa.
 
