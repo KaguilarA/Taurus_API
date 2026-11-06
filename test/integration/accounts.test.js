@@ -85,6 +85,118 @@ test("perfil propio: autenticación, rol protegido, sin edición de otros usuari
     .send({ name: "Duplicate", username: "owner" })
     .expect(409);
 });
+test("admin edita otros perfiles y restablece incluso otra cuenta admin", async () => {
+  const target = await UserModel.save({
+    username: "second-admin",
+    name: "Second",
+    role: "admin",
+    password,
+  });
+  const id = String(target._id);
+  const url = "/api/admin/accounts/" + id;
+  const data = { name: "Updated admin", username: "second-updated" };
+  const replacement = {
+    password: nextPassword,
+    passwordConfirmation: nextPassword,
+  };
+  const other = request.agent(app);
+  await other
+    .post("/api/auth/login")
+    .send({ username: "second-admin", password })
+    .expect(200);
+  for (const agent of [request(app), waiter]) {
+    const status = agent === waiter ? 403 : 401;
+    await agent.put(url).send(data).expect(status);
+    await agent
+      .put(url + "/password")
+      .send(replacement)
+      .expect(status);
+  }
+  const updated = await admin
+    .put(url)
+    .send({ ...data, role: "waiter", password: "ignored", sessionVersion: 999 })
+    .expect(200);
+  assert.equal(updated.body.role, "admin");
+  assert.equal(updated.body.password, undefined);
+  await admin
+    .put(url)
+    .send({ ...data, username: "owner" })
+    .expect(409);
+  await admin
+    .put(url + "/password")
+    .send({ ...replacement, passwordConfirmation: "wrong" })
+    .expect(400);
+  await admin
+    .put(url + "/password")
+    .send({ password: "short", passwordConfirmation: "short" })
+    .expect(400);
+  await other.get("/api/admin/me").expect(200);
+  await admin
+    .put(url + "/password")
+    .send(replacement)
+    .expect(200);
+  await other.get("/api/admin/me").expect(401);
+  await admin.get("/api/admin/me").expect(200);
+  await request(app)
+    .post("/api/auth/login")
+    .send({ username: data.username, password })
+    .expect(401);
+  await request(app)
+    .post("/api/auth/login")
+    .send({ username: data.username, password: nextPassword })
+    .expect(200);
+  const stored = await UserModel.getById(id);
+  assert.equal(stored.sessionVersion, 1);
+  assert.equal(await UserModel.compareHash(id, "password", nextPassword), true);
+  const own = (await admin.get("/api/admin/me")).body;
+  await admin
+    .put("/api/admin/accounts/" + own._id + "/password")
+    .send(replacement)
+    .expect(400);
+  await admin.put("/api/admin/accounts/invalid").send(data).expect(400);
+  await admin
+    .put("/api/admin/accounts/000000000000000000000000")
+    .send(data)
+    .expect(404);
+  await admin
+    .put("/api/admin/accounts/000000000000000000000000/password")
+    .send(replacement)
+    .expect(404);
+});
+
+test("restablecimientos admin concurrentes no sobrescriben la misma versión", async (t) => {
+  const target = await UserModel.save({
+    username: "reset-race",
+    name: "Race",
+    role: "waiter",
+    password,
+  });
+  const id = String(target._id);
+  const original = UserModel.getById.bind(UserModel);
+  let reads = 0,
+    release;
+  const gate = new Promise((resolve) => {
+    release = resolve;
+  });
+  t.mock.method(UserModel, "getById", async (key, options) => {
+    const account = await original(key, options);
+    if (String(key) === id) {
+      if (++reads === 2) release();
+      await gate;
+    }
+    return account;
+  });
+  const results = await Promise.all(
+    [nextPassword, "Another-secure-password-2026!"].map((value) =>
+      admin
+        .put("/api/admin/accounts/" + id + "/password")
+        .send({ password: value, passwordConfirmation: value }),
+    ),
+  );
+  assert.deepEqual(results.map((result) => result.status).sort(), [200, 409]);
+  assert.equal((await original(id)).sessionVersion, 1);
+});
+
 test("contraseña propia exige contraseña actual y revoca otras sesiones", async () => {
   const other = request.agent(app);
   await other

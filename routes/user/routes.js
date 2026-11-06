@@ -37,6 +37,12 @@ export function registerAccounts(options = {}) {
   const controller = Controllers.createAccountsController(options);
   router.get("/api/admin/accounts", controller.getAccounts);
   router.post("/api/admin/accounts", controller.registerAccount);
+  router.put("/api/admin/accounts/:id", controller.updateAccount);
+  router.put(
+    "/api/admin/accounts/:id/password",
+    OwlRateLimit({ windowMs: 900000, limit: 10 }),
+    controller.resetPassword,
+  );
 
   return router;
 }

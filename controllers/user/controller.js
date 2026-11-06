@@ -20,25 +20,39 @@ function passwordInput(body) {
     throw new Problem("Las contraseñas no coinciden.");
   return password;
 }
+function profileInput(body) {
+  return {
+    name: text(body.name, "Nombre", 100, true),
+    username: usernameInput(body.username),
+  };
+}
+async function updateProfile(id, body) {
+  const data = profileInput(body);
+  try {
+    const account = await UserModel.update(
+      id,
+      { $set: data },
+      { new: true, runValidators: true },
+    );
+    if (!account) throw new Problem("Usuario no encontrado.", 404);
+    return profile(account);
+  } catch (error) {
+    if (error.code === 11000)
+      throw new Problem("El usuario ya está en uso.", 409);
+    throw error;
+  }
+}
+function otherAccountId(req) {
+  const id = req.params.id;
+  if (!/^[a-f0-9]{24}$/i.test(id)) throw new Problem("Usuario inválido.");
+  if (id.toLowerCase() === String(req.account._id))
+    throw new Problem("Usá Mi perfil para modificar tu propia cuenta.");
+  return id;
+}
 export function createUserController({ production, origin } = {}) {
   const getInfo = (req, res) => res.json(profile(req.account));
   const update = async (req, res) => {
-    const data = {
-      name: text(req.body.name, "Nombre", 100, true),
-      username: usernameInput(req.body.username),
-    };
-    try {
-      const account = await UserModel.update(
-        req.account._id,
-        { $set: data },
-        { new: true, runValidators: true },
-      );
-      res.json(profile(account));
-    } catch (error) {
-      if (error.code === 11000)
-        throw new Problem("El usuario ya está en uso.", 409);
-      throw error;
-    }
+    res.json(await updateProfile(req.account._id, req.body));
   };
   const changePassword = async (req, res) => {
     const password = passwordInput(req.body);
@@ -108,6 +122,25 @@ export function createUserController({ production, origin } = {}) {
   };
 }
 export function createAccountsController({ production } = {}) {
+  const updateAccount = async (req, res) => {
+    res.json(await updateProfile(otherAccountId(req), req.body));
+  };
+  const resetPassword = async (req, res) => {
+    const id = otherAccountId(req);
+    const password = passwordInput(req.body);
+    const target = await UserModel.getById(id, {
+      select: "sessionVersion",
+      lean: true,
+    });
+    if (!target) throw new Problem("Usuario no encontrado.", 404);
+    const account = await UserModel.updateWhere(
+      { _id: id, sessionVersion: target.sessionVersion ?? 0 },
+      { $set: { password }, $inc: { sessionVersion: 1 } },
+      { new: true, runValidators: true },
+    );
+    if (!account) throw new Problem("La cuenta cambió. Intentá de nuevo.", 409);
+    res.json({ ok: true });
+  };
   const getAccounts = async (req, res) =>
     res.json(
       await UserModel.getByCoincidence(
@@ -149,7 +182,7 @@ export function createAccountsController({ production } = {}) {
       .status(201)
       .json({ _id: account._id, username, role, name: account.name });
   };
-  return { getAccounts, registerAccount };
+  return { getAccounts, registerAccount, updateAccount, resetPassword };
 }
 
 export default createUserController;
