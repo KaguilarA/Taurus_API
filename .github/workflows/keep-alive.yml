@@ -5,6 +5,11 @@ on:
     # Avoid the busiest minute boundaries. GitHub schedules are best effort.
     - cron: '3-53/10 * * * *'
   workflow_dispatch:
+    inputs:
+      recover:
+        description: Request a Render redeploy and verify recovery
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -45,7 +50,7 @@ jobs:
             --output setup.json "${PUBLIC_FRONTEND_URL%/}/api/setup/status"
           node -e "JSON.parse(require('node:fs').readFileSync('setup.json', 'utf8'))"
       - name: Recover an unavailable backend through Render
-        if: steps.health.outcome == 'failure' || steps.gateway.outcome == 'failure'
+        if: inputs.recover == true || steps.health.outcome == 'failure' || steps.gateway.outcome == 'failure'
         shell: bash
         env:
           RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
