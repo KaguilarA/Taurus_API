@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 import { OwlIsValidId, OwlTransaction } from "owl-expressjs-utils";
 import {
   ProductModel,
-  PurchaseInvoiceModel,
   StockMovementModel,
   BusinessModel,
 } from "../models/models.js";
@@ -77,36 +76,24 @@ function matchName(value) {
 export async function invoicePreview(file, actorId, reader = readInvoice) {
   validateInvoiceFile(file);
   const fileHash = createHash("sha256").update(file.buffer).digest("hex");
-  let invoice = await PurchaseInvoiceModel.getOne({ fileHash }, { lean: true });
-  if (!invoice) {
-    const reading = await reader(file);
-    const validated = validateInvoiceReading(reading);
-    try {
-      invoice = (
-        await PurchaseInvoiceModel.saveMany([
-          {
-            ...validated,
-            source: reading.source,
-            fileHash,
-            createdBy: actorId,
-          },
-        ])
-      )[0].toObject();
-    } catch (error) {
-      if (error.code !== 11000) throw error;
-      invoice = await PurchaseInvoiceModel.getOne({ fileHash }, { lean: true });
-      if (!invoice) throw error;
-    }
-  }
-  if (invoice.status === "confirmed")
+  if (await StockMovementModel.exists({ importKey: fileHash }))
     throw new Problem(
       "Esta factura ya fue registrada. No se volvió a sumar inventario.",
       409,
     );
+  let invoice;
+  try {
+    const reading = await reader(file);
+    invoice = { ...validateInvoiceReading(reading), source: reading.source };
+  } finally {
+    file.buffer.fill(0);
+  }
   const [duplicate, products] = await Promise.all([
     invoice.invoiceNumber
-      ? PurchaseInvoiceModel.exists({
-          invoiceKey: invoiceIdentity(invoice.supplier, invoice.invoiceNumber),
+      ? StockMovementModel.exists({
+          importNumberKey: createHash("sha256")
+            .update(invoiceIdentity(invoice.supplier, invoice.invoiceNumber))
+            .digest("hex"),
         })
       : false,
     ProductModel.getByCoincidence(
@@ -141,7 +128,7 @@ export async function invoicePreview(file, actorId, reader = readInvoice) {
       ]);
   }
   return {
-    _id: String(invoice._id),
+    _id: fileHash,
     supplier: invoice.supplier,
     invoiceNumber: invoice.invoiceNumber,
     currency: invoice.currency,
@@ -179,7 +166,8 @@ export async function invoicePreview(file, actorId, reader = readInvoice) {
 }
 
 export async function confirmInvoice(id, input, actorId) {
-  if (!OwlIsValidId(id)) throw new Problem("Factura inválida.");
+  if (typeof id !== "string" || !/^[a-f0-9]{64}$/.test(id))
+    throw new Problem("Huella de archivo inválida.");
   if (!input || typeof input !== "object")
     throw new Problem("Enviá los datos de la factura.");
   const supplier = text(input.supplier, "Proveedor", 150, true);
@@ -189,7 +177,10 @@ export async function confirmInvoice(id, input, actorId) {
     80,
     true,
   );
-  const invoiceKey = invoiceIdentity(supplier, invoiceNumber);
+  const invoiceKey = createHash("sha256")
+    .update(invoiceIdentity(supplier, invoiceNumber))
+    .digest("hex");
+  const currency = text(input.currency ?? "", "Moneda", 3);
   if (
     !Array.isArray(input.entries) ||
     !input.entries.length ||
@@ -210,6 +201,10 @@ export async function confirmInvoice(id, input, actorId) {
       throw new Problem("Revisá la presentación de cada producto.");
     return {
       lineIndex,
+      description:
+        input.rememberMatches === false
+          ? ""
+          : text(entry.description, "Nombre del proveedor", 300, true),
       productId: entry.productId,
       purchasePrice:
         entry.purchasePrice == null
@@ -228,43 +223,15 @@ export async function confirmInvoice(id, input, actorId) {
   });
   try {
     return await OwlTransaction(async (session) => {
-      const invoice = await PurchaseInvoiceModel.getById(id, {
-        lean: true,
-        session,
-      });
-      if (!invoice) throw new Problem("Factura no encontrada.", 404);
-      if (invoice.status === "confirmed") {
-        if (invoice.invoiceKey !== invoiceKey)
-          throw new Problem(
-            "La factura ya fue registrada con otro número.",
-            409,
-          );
-        return {
-          _id: String(invoice._id),
-          status: "confirmed",
-          alreadyConfirmed: true,
-          entries: invoice.entries,
-        };
-      }
-      if (entries.some((entry) => entry.lineIndex >= invoice.lines.length))
-        throw new Problem("Renglón de factura inválido.");
-      const claimed = await PurchaseInvoiceModel.updateWhere(
-        { _id: id, status: "draft" },
-        {
-          $set: {
-            invoiceKey,
-            supplier,
-            invoiceNumber,
-            status: "confirmed",
-            confirmedBy: actorId,
-            confirmedAt: new Date(),
-            updatePurchasePrices: input.updatePurchasePrices === true,
-          },
-        },
-        { session },
-      );
-      if (!claimed)
-        throw new Problem("La factura ya está siendo registrada.", 409);
+      if (await StockMovementModel.exists({ importKey: id }, { session }))
+        return { _id: id, status: "confirmed", alreadyConfirmed: true };
+      if (
+        await StockMovementModel.exists(
+          { importNumberKey: invoiceKey },
+          { session },
+        )
+      )
+        throw new Problem("Ese número de factura ya fue registrado.", 409);
       const products = await ProductModel.getByCoincidence(
         { _id: { $in: entries.map((entry) => entry.productId) }, active: true },
         { lean: true, select: "name bottleMl active supplierAliases", session },
@@ -278,7 +245,7 @@ export async function confirmInvoice(id, input, actorId) {
           { key: "main" },
           { lean: true, select: "currency", session },
         );
-        if (!invoice.currency || invoice.currency !== business?.currency)
+        if (!currency || currency !== business?.currency)
           throw new Problem(
             "La moneda de la factura no coincide con la del negocio. Registrá solo existencias y revisá el costo por separado.",
           );
@@ -310,7 +277,9 @@ export async function confirmInvoice(id, input, actorId) {
         number(delta, "Entrada de inventario", 1, true, 1e9);
         const stock = await changeStock(product, delta, session);
         if (input.rememberMatches !== false) {
-          const name = invoice.lines[entry.lineIndex].description;
+          const name = entry.description
+            .replace(/\b\d+(?:[.,]\d+)?\s*%/g, "")
+            .trim();
           const key = supplierAliasKey(supplier, name);
           if (newLinks.has(key) && newLinks.get(key) !== entry.productId)
             throw new Problem(
@@ -322,7 +291,13 @@ export async function confirmInvoice(id, input, actorId) {
             const linked = await ProductModel.updateWhere(
               { _id: product._id, "supplierAliases.99": { $exists: false } },
               {
-                $addToSet: { supplierAliases: { key, supplier, name } },
+                $addToSet: {
+                  supplierAliases: {
+                    key,
+                    supplier: invoiceIdentity(supplier, "alias").split(":")[0],
+                    name,
+                  },
+                },
               },
               { session, runValidators: true },
             );
@@ -343,7 +318,13 @@ export async function confirmInvoice(id, input, actorId) {
             { $set: { purchasePrice: entry.purchasePrice } },
             { session, runValidators: true },
           );
-        saved.push({ ...entry, delta, unit: stock.unit, balance: stock.stock });
+        const first = saved.length === 0;
+        saved.push({
+          productId: entry.productId,
+          delta,
+          unit: stock.unit,
+          balance: stock.stock,
+        });
         await StockMovementModel.saveMany(
           [
             {
@@ -351,20 +332,16 @@ export async function confirmInvoice(id, input, actorId) {
               productName: product.name,
               delta,
               unit: stock.unit,
-              reason: `Compra ${supplier} · ${invoiceNumber}`,
+              reason: "Entrada de compra",
               balance: stock.stock,
-              invoiceId: id,
+              importGroup: id,
+              ...(first ? { importKey: id, importNumberKey: invoiceKey } : {}),
               actorId,
             },
           ],
           { session },
         );
       }
-      await PurchaseInvoiceModel.update(
-        id,
-        { $set: { entries: saved } },
-        { session },
-      );
       return {
         _id: id,
         status: "confirmed",
@@ -378,6 +355,11 @@ export async function confirmInvoice(id, input, actorId) {
         "Ese nombre del proveedor ya está vinculado a otro producto. Revisá la coincidencia; no se modificó el inventario.",
         409,
       );
+    if (
+      error.code === 11000 &&
+      (await StockMovementModel.exists({ importKey: id }))
+    )
+      return { _id: id, status: "confirmed", alreadyConfirmed: true };
     if (error.code === 11000)
       throw new Problem(
         "Ese número de factura ya fue registrado. No se volvió a sumar inventario.",

@@ -29,6 +29,7 @@
   "private": true,
   "description": "API to manage the Taurus project",
   "dependencies": {
+    "@tesseract.js-data/eng": "1.0.0",
     "cloudinary": "^2.11.0",
     "express": "^5.3.0",
     "helmet": "^8.3.0",
@@ -36,7 +37,8 @@
     "owl-expressjs-utils": "https://codeload.github.com/KaguilarA/owl-expressjs-utils/tar.gz/4b85d6d84a53c59926870c271fe084f2a7004fb3",
     "pdf-parse": "2.4.5",
     "qrcode": "^1.5.4",
-    "socket.io": "^4.8.4"
+    "socket.io": "^4.8.4",
+    "tesseract.js": "7.0.0"
   },
   "devDependencies": {
     "express-session": "^1.19.0",

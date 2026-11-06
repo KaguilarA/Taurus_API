@@ -1,28 +1,33 @@
-# Facturas de compra y costo de inventario
+# Importación temporal de compras
 
-En **Inventario → Cargar factura de compra**, un administrador sube un PDF, JPG, PNG o WebP (hasta 10 MB). La revisión muestra renglones, coincidencias con productos existentes, cantidad de paquetes, unidades por paquete y entrada resultante. Corregir o excluir los renglones sin coincidencia o presentación antes de confirmar. No se crean productos ni se modifican precios de venta. Un `1X12` significa doce unidades por paquete.
+En **Inventario → Cargar factura de compra**, un administrador sube PDF, JPG, PNG o WebP (hasta 10 MB), revisa coincidencias, paquetes, cantidades y costo neto, y confirma la entrada. Solo se actualizan productos existentes y sus saldos en `products` y `productstocks`; los precios de venta se conservan.
 
-Los PDF digitales con el formato reconocido de Distribuidora Quimar se leen localmente, en un proceso aislado (máximo 20 páginas, 200.000 caracteres y 15 segundos). Si cambia el formato, o el documento es una foto/escaneo, el backend usa Responses de OpenAI. Configurar `OPENAI_API_KEY` e `INVOICE_OCR_MODEL` solo en el servidor; el modelo debe soportar imágenes, PDF y salida estructurada. Sin estas variables se conserva la lectura local de Quimar y se informa que falta configurar el reconocimiento de imágenes. Las facturas enviadas al proveedor usan `store: false`; no se envía el catálogo. No se conserva el archivo original ni se publica en Cloudinary. Referencias: [archivos en Responses](https://developers.openai.com/api/docs/guides/file-inputs) y [pdf-parse](https://github.com/mehmet-kozan/pdf-parse).
+## Sin almacenamiento de facturas
+
+El archivo se procesa únicamente en RAM y su buffer se limpia antes de terminar la solicitud. No se escriben PDF, imágenes, texto OCR, datos del cliente, borradores, números de factura ni desgloses en disco, base de datos, logs o servicios externos. El navegador mantiene la revisión en memoria de la página y la descarta al cerrar el panel o confirmar. No usa localStorage, IndexedDB ni cookies para la factura.
+
+La lectura digital de Quimar usa pdf-parse. Las imágenes y PDF escaneados se reconocen con Tesseract en un proceso aislado, usando el modelo de idioma incluido en las dependencias; no descarga ni sube datos durante la lectura. No requiere claves externas. Se limita a un proceso simultáneo por instancia, 90 segundos, 20 páginas digitales o 3 escaneadas y 200.000 caracteres. Una lectura incompleta se rechaza para evitar entradas parciales.
+
+Solo se conservan los resultados de negocio: saldo y costo del producto, movimientos de inventario con su responsable y las equivalencias de nombres solicitadas. Las equivalencias excluyen el porcentaje de descuento. En los movimientos quedan huellas SHA-256 del archivo y de proveedor/consecutivo para impedir duplicados; no contienen el documento ni su contenido y no permiten descargarlo o consultar una factura.
+
+Al arrancar se descartan los borradores y datos de facturas de la implementación anterior. Si había compras confirmadas, primero se mantienen sus movimientos y sus huellas de deduplicación dentro de una transacción. No se borran productos, saldos, compras aplicadas, ventas, pagos ni usuarios.
 
 ## Contrato
 
-- `POST /api/admin/products/invoices/preview` recibe multipart `invoice` y guarda un borrador con los datos extraídos, sin tocar existencias.
-- `POST /api/admin/products/invoices/:id/confirm` recibe `supplier`, `invoiceNumber`, `updatePurchasePrices`, `rememberMatches` (por defecto verdadero) y `entries` (`lineIndex`, `productId`, `quantity`, `unitsPerPack`, `mode`, `purchasePrice`).
-- `mode` admite `units`, `bottles` o `ml`; las botellas se convierten usando la capacidad actual del producto.
-- Se admiten hasta 200 renglones y 2.000 productos activos. La lectura está limitada a diez intentos por IP cada quince minutos y dos procesos PDF simultáneos por instancia.
+- `POST /api/admin/products/invoices/preview`: multipart `invoice`; devuelve revisión efímera e `_id` (huella del archivo), sin escrituras en la base.
+- `POST /api/admin/products/invoices/:id/confirm`: recibe `supplier`, `invoiceNumber`, `currency`, `updatePurchasePrices`, `rememberMatches` y `entries` (`lineIndex`, `description`, `productId`, `quantity`, `unitsPerPack`, `mode`, `purchasePrice`). La descripción se necesita solo para recordar equivalencias; el consecutivo solo se usa para calcular la huella.
+- El administrador puede corregir los datos extraídos antes de confirmar. Toda entrada se valida y registra usando sus permisos de ajuste de inventario; no se confía en precios de venta del cliente.
+- Máximos: 200 renglones, 2.000 productos activos y diez lecturas por IP cada quince minutos.
+- `units`: unidades; `bottles`: botellas de licor convertidas con la capacidad actual; `ml`: mililitros. `1X12` significa doce unidades por paquete.
 
-Una sola transacción OWL actualiza saldos, costos seleccionados, factura y movimientos con administrador responsable. Los índices únicos de hash de archivo y proveedor/número impiden duplicados, incluso entre archivos diferentes o administradores concurrentes. Reiniciar la API tras desplegar crea estos índices aditivos. Los reintentos del mismo borrador confirmado devuelven el resultado previo. Los renglones excluidos no pueden añadirse después con el mismo número: revisar toda la factura antes de confirmarla.
+Una transacción OWL aplica stock, costo y equivalencias y registra los movimientos. Los índices únicos de las huellas impiden duplicados entre administradores y entre archivos distintos de la misma compra. Un reintento confirmado no vuelve a sumar existencias. Los renglones excluidos no se pueden agregar luego reutilizando el mismo consecutivo.
 
-## Equivalencias de nombres
+## Equivalencias y costo
 
-Cada producto guarda sus nombres de proveedor en `Product.supplierAliases`; no existe otro registro de productos. La revisión propone coincidencias únicas (incluyendo variantes de Quimar como «Imperial Silver» → «Silver») y marca las ambiguas para selección manual. Al confirmar con «Recordar la relación», el nombre original se vincula al ID del producto. Un nombre del mismo proveedor no puede pertenecer a dos productos: un índice único y la transacción rechazan el conflicto sin modificar stock ni costos. Los descuentos no forman parte de la identidad del nombre; la presentación y el tamaño del paquete sí. Cada producto admite hasta 100 equivalencias. Las equivalencias no se publican en la carta. Desactivar la casilla permite registrar una compra sin guardar nuevos vínculos.
+`Product.supplierAliases` vincula cada nombre del proveedor con un producto (máximo 100 nombres por producto). Se proponen coincidencias únicas, incluyendo «Imperial Silver» → «Silver»; las ambiguas requieren selección manual. Un índice único rechaza vínculos contradictorios sin cambiar existencias. No se publican equivalencias en la carta.
 
-## Precio de compra neto
-
-`Product.purchasePrice` es un costo opcional por unidad o botella completa, después de descuento y **sin IVA**, en la moneda del negocio. El formulario permite editarlo, Inventario lo muestra y la factura puede actualizarlo calculando `precioPaquete × (1 − descuento/100) / unidadesPorPaquete`, redondeado a cuatro decimales. La presentación monetaria usa dos decimales.
-
-Un precio/descuento ilegible no sobrescribe el costo anterior. La importación en otra moneda permite cargar existencias, pero bloquea la actualización de costos. Este campo no se expone en la carta pública. No se recalculan ventas ni márgenes históricos. La factura conserva los valores extraídos y las entradas confirmadas; la edición de costos en productos no altera facturas anteriores.
+`Product.purchasePrice` es costo por unidad o botella completa, después del descuento, sin IVA y en la moneda del negocio: `precioPaquete × (1 − descuento/100) / unidadesPorPaquete`, redondeado a cuatro decimales. Faltantes o moneda distinta no sobrescriben el costo. El campo no se expone en la carta pública.
 
 ## Validación
 
-`npm test` incluye lectura de un PDF sintético sin datos privados, equivalencias de paquetes y botellas, permisos, rollback completo, costos privados, dos confirmaciones concurrentes del mismo borrador y dos archivos con el mismo número. Las llamadas OCR se simulan en pruebas; la exactitud de fotos requiere probar con el proveedor configurado. En el frontend, las pruebas cubren revisión, errores/reintentos, bloqueo de entradas incompatibles y apertura del selector con teclado.
+`npm test` comprueba lectura digital y OCR real de una imagen sintética sin datos privados, ausencia de borradores persistidos, limpieza de buffers y datos anteriores, permisos, equivalencias, rollback completo, privacidad de costos y confirmaciones/ventas concurrentes. El frontend comprueba revisión, recuperación de errores, descarte tras confirmar y navegación con teclado.

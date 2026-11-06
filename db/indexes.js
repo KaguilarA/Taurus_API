@@ -10,12 +10,12 @@ export async function initializeQueryIndexes() {
         partialFilterExpression: { "supplierAliases.key": { $type: "string" } },
       },
     ),
-    OwlCollection("purchaseinvoices").createIndex(
-      { fileHash: 1 },
-      { unique: true },
+    OwlCollection("stockmovements").createIndex(
+      { importKey: 1 },
+      { unique: true, sparse: true },
     ),
-    OwlCollection("purchaseinvoices").createIndex(
-      { invoiceKey: 1 },
+    OwlCollection("stockmovements").createIndex(
+      { importNumberKey: 1 },
       { unique: true, sparse: true },
     ),
     OwlCollection("products").createIndex({

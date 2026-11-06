@@ -5,7 +5,9 @@ const model = {
   unit: String,
   reason: String,
   saleId: String,
-  invoiceId: String,
+  importGroup: String,
+  importKey: String,
+  importNumberKey: String,
   actorId: String,
   balance: Number,
 };

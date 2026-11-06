@@ -4,12 +4,18 @@ import { readFileSync } from "node:fs";
 import session from "express-session";
 import request from "supertest";
 import { MongoMemoryReplSet } from "mongodb-memory-server";
-import { OwlMongoConnect, OwlMongoClose } from "owl-expressjs-utils";
+import {
+  OwlMongoConnect,
+  OwlMongoClose,
+  OwlCollection,
+} from "owl-expressjs-utils";
+import { PDFParse } from "pdf-parse";
+import { invoicePreview } from "../../services/purchase-invoices.js";
+import { discardStoredInvoices } from "../../db/invoice-privacy.js";
 import { createApp } from "../../app.js";
 import {
   ProductModel,
   ProductStockModel,
-  PurchaseInvoiceModel,
   StockMovementModel,
   UserModel,
   BusinessModel,
@@ -19,7 +25,6 @@ import { initializeProductTypes } from "../../services/product-types.js";
 import { initializeQueryIndexes } from "../../db/indexes.js";
 import {
   readInvoice,
-  readInvoiceVision,
   parseQuimarText,
   MAX_INVOICE_BYTES,
 } from "../../services/invoice-reading.js";
@@ -49,6 +54,7 @@ after(async () => {
 });
 beforeEach(async () => {
   for (const model of registeredModels) await model.deleteMany({});
+  await OwlCollection("purchaseinvoices").deleteMany({});
   await initializeProductTypes();
   await BusinessModel.save({
     key: "main",
@@ -62,7 +68,7 @@ beforeEach(async () => {
   });
   reading = {
     ...(await readInvoice({ buffer: pdf, mimetype: "application/pdf" })),
-    source: "vision",
+    source: "local-ocr",
   };
   app = createApp({
     origin: "http://localhost:4200",
@@ -110,11 +116,13 @@ function upload(bytes = png, agent = admin, mime = "image/png") {
 }
 function confirmation(preview) {
   return {
+    currency: preview.currency,
     supplier: preview.supplier,
     invoiceNumber: preview.invoiceNumber,
     updatePurchasePrices: true,
     entries: preview.lines.map((line, i) => ({
       lineIndex: i,
+      description: line.description,
       productId: products[i]._id,
       quantity: line.quantity,
       unitsPerPack: line.unitsPerPack,
@@ -169,7 +177,10 @@ test("vincula nombres distintos del catálogo y recuerda el vínculo por proveed
     .expect(200);
   const linked = await ProductModel.getById(products[1]._id, { lean: true });
   assert.equal(linked.supplierAliases.length, 1);
-  assert.equal(linked.supplierAliases[0].name, reading.lines[1].description);
+  assert.equal(
+    linked.supplierAliases[0].name,
+    "IMPERIAL SILVER VIDRIO 350ML.1X12",
+  );
   assert.equal(linked.name, "Silver");
   await ProductModel.update(products[1]._id, {
     $set: { name: "Cerveza de la casa Silver" },
@@ -213,8 +224,8 @@ test("rechaza vínculos contradictorios y revierte existencias y costos; permite
     0,
   );
   assert.equal(
-    (await PurchaseInvoiceModel.getById(preview._id)).status,
-    "draft",
+    await StockMovementModel.countDocuments({ importKey: preview._id }),
+    0,
   );
   body.rememberMatches = false;
   await admin.post(`${path}/${preview._id}/confirm`).send(body).expect(200);
@@ -271,13 +282,13 @@ test("preview no modifica saldos; confirmación suma y actualiza costo sin cambi
     assert.equal(product.price, 1500);
   }
   assert.equal(
-    await StockMovementModel.countDocuments({ invoiceId: preview._id }),
+    await StockMovementModel.countDocuments({ importGroup: preview._id }),
     5,
   );
-  const saved = await PurchaseInvoiceModel.getById(preview._id);
-  assert.equal(saved.status, "confirmed");
-  assert.ok(saved.confirmedBy);
-  assert.equal(saved.entries[0].purchasePrice, 728.28);
+  const saved = await StockMovementModel.getOne({ importKey: preview._id });
+  assert.ok(saved.actorId);
+  assert.equal(saved.reason, "Entrada de compra");
+  assert.equal(await OwlCollection("purchaseinvoices").countDocuments({}), 0);
   const menu = (
     await request(app).get("/api/public/menu?category=drink").expect(200)
   ).body;
@@ -309,7 +320,7 @@ test("dos administradores/reintentos del mismo borrador suman una sola vez", asy
     48,
   );
   assert.equal(
-    await StockMovementModel.countDocuments({ invoiceId: preview._id }),
+    await StockMovementModel.countDocuments({ importGroup: preview._id }),
     5,
   );
   await upload().expect(409);
@@ -353,7 +364,7 @@ test("una compra y una venta concurrentes conservan todas las entradas y salidas
     48,
   );
   assert.equal(
-    await StockMovementModel.countDocuments({ invoiceId: preview._id }),
+    await StockMovementModel.countDocuments({ importGroup: preview._id }),
     5,
   );
 });
@@ -364,8 +375,8 @@ test("un renglón incompatible revierte todo, incluido costo y número; permite 
   body.entries[4].mode = "bottles";
   await admin.post(`${path}/${preview._id}/confirm`).send(body).expect(400);
   assert.equal(
-    (await PurchaseInvoiceModel.getById(preview._id)).status,
-    "draft",
+    await StockMovementModel.countDocuments({ importKey: preview._id }),
+    0,
   );
   assert.equal(
     (await ProductStockModel.getOne({ owner: products[0]._id })).stock,
@@ -421,7 +432,7 @@ test("solo administradores pueden leer o confirmar; valida firmas, tamaño, camp
       b.entries[0].productId = "invalid";
     },
     (b) => {
-      b.entries[0].lineIndex = 99;
+      b.entries[0].lineIndex = 200;
     },
     (b) => {
       b.entries.push(b.entries[0]);
@@ -465,6 +476,7 @@ test("convierte botellas a ml y mantiene costo previo cuando no se solicita camb
     },
   ];
   body.updatePurchasePrices = false;
+  body.rememberMatches = false;
   await admin.post(`${path}/${preview._id}/confirm`).send(body).expect(200);
   assert.equal(
     (await ProductStockModel.getOne({ owner: bottle._id })).stock,
@@ -486,52 +498,78 @@ test("una moneda distinta impide cambiar costos y permite ingresar solo existenc
   );
 });
 
-test("vision envía archivo y esquema, limita tiempo y rechaza resultados incompletos sin registrar inventario", async () => {
-  const file = { buffer: png, mimetype: "image/png" };
-  await assert.rejects(() => readInvoiceVision(file, { env: {} }), {
-    status: 503,
-  });
-  const env = {
-    OPENAI_API_KEY: "test-only-key",
-    INVOICE_OCR_MODEL: "test-vision",
-  };
-  const result = await readInvoiceVision(file, {
-    env,
-    fetcher: async (url, options) => {
-      assert.equal(url, "https://api.openai.com/v1/responses");
-      const body = JSON.parse(options.body);
-      assert.equal(body.store, false);
-      assert.equal(body.text.format.strict, true);
-      assert.equal(body.input[0].content[0].type, "input_image");
-      assert.ok(options.signal);
-      return {
-        ok: true,
-        json: async () => ({
-          status: "completed",
-          output: [
-            {
-              type: "message",
-              content: [{ type: "output_text", text: JSON.stringify(reading) }],
-            },
-          ],
-        }),
-      };
-    },
-  });
+test("preview descarta el buffer sin guardar documento ni datos extraídos", async () => {
+  const bytes = Buffer.from(png);
+  const result = await invoicePreview(
+    { buffer: bytes, mimetype: "image/png" },
+    "test",
+    async () => reading,
+  );
   assert.equal(result.lines.length, 5);
-  for (const response of [
-    { ok: false },
-    { ok: true, json: async () => ({ status: "incomplete" }) },
-    {
-      ok: true,
-      json: async () => ({
-        status: "completed",
-        output: [{ type: "message", content: [{ type: "refusal" }] }],
-      }),
-    },
-  ])
-    await assert.rejects(() =>
-      readInvoiceVision(file, { env, fetcher: async () => response }),
+  assert.ok(bytes.every((value) => value === 0));
+  assert.equal(await OwlCollection("purchaseinvoices").countDocuments({}), 0);
+  assert.equal(await StockMovementModel.countDocuments({}), 0);
+  assert.equal(
+    registeredModels.some((model) => model.modelName === "PurchaseInvoice"),
+    false,
+  );
+});
+
+test("OCR reconoce la imagen de prueba sin claves externas ni archivos de factura", async () => {
+  const parser = new PDFParse({ data: new Uint8Array(pdf) });
+  try {
+    const shot = (await parser.getScreenshot({ desiredWidth: 1800 })).pages[0]
+      .data;
+    const actual = await readInvoice({
+      buffer: Buffer.from(shot),
+      mimetype: "image/png",
+    });
+    assert.equal(actual.source, "local-ocr");
+    assert.equal(actual.lines.length, 5);
+    assert.equal(
+      actual.lines.reduce(
+        (sum, line) => sum + line.quantity * line.unitsPerPack,
+        0,
+      ),
+      216,
     );
-  assert.equal(await PurchaseInvoiceModel.countDocuments({}), 0);
+  } finally {
+    await parser.destroy();
+  }
+});
+
+test("limpieza elimina borradores y contenido anterior conservando saldos, movimientos y protección contra duplicados", async () => {
+  await OwlCollection("purchaseinvoices").insertOne({
+    status: "draft",
+    lines: [{ description: "DO NOT KEEP" }],
+    invoiceNumber: "PRIVATE",
+  });
+  const legacy = await OwlCollection("purchaseinvoices").insertOne({
+    status: "confirmed",
+    fileHash: "a".repeat(64),
+    invoiceKey: "quimar:00100001010000000001",
+    invoiceNumber: "PRIVATE",
+    lines: [{ description: "DO NOT KEEP" }],
+  });
+  const movement = await OwlCollection("stockmovements").insertOne({
+    invoiceId: String(legacy.insertedId),
+    productId: products[0]._id,
+    productName: "Imperial",
+    delta: 48,
+    balance: 48,
+    unit: "unit",
+    reason: "Compra PRIVATE",
+  });
+  assert.equal(await discardStoredInvoices(), 2);
+  assert.equal(await discardStoredInvoices(), 0);
+  assert.equal(await OwlCollection("purchaseinvoices").countDocuments({}), 0);
+  const saved = await StockMovementModel.getById(String(movement.insertedId), {
+    lean: true,
+  });
+  assert.equal(saved.delta, 48);
+  assert.equal(saved.balance, 48);
+  assert.equal(saved.importKey, "a".repeat(64));
+  assert.equal(saved.invoiceId, undefined);
+  assert.equal(saved.reason, "Entrada de compra");
+  assert.doesNotMatch(JSON.stringify(saved), /PRIVATE|DO NOT KEEP/);
 });
