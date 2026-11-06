@@ -2,7 +2,8 @@ name: Keep backend awake
 
 on:
   schedule:
-    - cron: '*/10 * * * *'
+    # Avoid the busiest minute boundaries. GitHub schedules are best effort.
+    - cron: '3-53/10 * * * *'
   workflow_dispatch:
 
 permissions: {}
@@ -17,6 +18,7 @@ jobs:
     timeout-minutes: 5
     env:
       DEPLOYMENT_URL: ${{ vars.DEPLOYMENT_URL }}
+      PUBLIC_FRONTEND_URL: ${{ vars.PUBLIC_FRONTEND_URL }}
     steps:
       - name: Wake and verify backend without rebuilding or restarting it
         shell: bash
@@ -28,3 +30,13 @@ jobs:
             --output health.json "${DEPLOYMENT_URL%/}/api/health"
           node -e "const fs = require('node:fs'); const assert = require('node:assert/strict'); assert.equal(JSON.parse(fs.readFileSync('health.json', 'utf8')).ok, true)"
           echo 'Backend awake and healthy. No redeploy or database write performed.'
+      - name: Verify the same API route used by customer devices
+        if: always()
+        shell: bash
+        run: |
+          test -n "$PUBLIC_FRONTEND_URL"
+          curl --fail --silent --show-error --proto '=https' \
+            --connect-timeout 10 --max-time 75 \
+            --retry 2 --retry-delay 15 --retry-max-time 190 \
+            --output setup.json "${PUBLIC_FRONTEND_URL%/}/api/setup/status"
+          node -e "JSON.parse(require('node:fs').readFileSync('setup.json', 'utf8'))"
