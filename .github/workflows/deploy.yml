@@ -38,16 +38,11 @@ jobs:
     timeout-minutes: 20
     permissions:
       contents: write
-    env:
-      DEPLOYMENT_URL: ${{ vars.DEPLOYMENT_URL }}
-      DEPLOYMENT_METADATA_PATH: /api/deployment
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version: '24'
-      - name: Check deployment configuration
-        run: test -n "$DEPLOYMENT_URL"
       - name: Package backend
         id: package
         run: node scripts/build-backend.mjs
@@ -55,5 +50,3 @@ jobs:
         env:
           ARTIFACT_DIR: ${{ steps.package.outputs.directory }}
         run: node scripts/publish-production.mjs
-      - name: Verify deployed revision and database readiness
-        run: node scripts/wait-deployment.mjs

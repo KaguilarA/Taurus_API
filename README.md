@@ -162,7 +162,7 @@ Los módulos de pagos, inventario y pedidos conservan validaciones y transaccion
 
 ## Despliegues con GitHub Actions
 
-El workflow **Keep backend awake** consulta `/api/health` cada cinco minutos usando `DEPLOYMENT_URL`; también admite ejecución manual. No compila, despliega ni consulta la base. Reduce la suspensión por inactividad del plan gratuito de Render, pero el cron de GitHub funciona como mejor esfuerzo y puede retrasarse. En repositorios públicos, GitHub puede desactivar los horarios después de 60 días sin actividad. Referencias: [Render Free](https://render.com/docs/free) y [horarios de Actions](https://docs.github.com/en/actions/how-tos/troubleshoot-workflows).
+GitHub Actions no hace llamadas HTTP a producción ni chequeos periódicos de disponibilidad. Las verificaciones públicas se realizan fuera de Actions.
 
 El workflow `.github/workflows/deploy.yml` valida los pull requests y pushes a `master` y `dev`. Las ramas de trabajo se crean desde `dev`. Solo los pushes a `master` o una ejecucion manual desde `master` pueden publicar. Si alguna prueba falla, no se actualiza produccion.
 
