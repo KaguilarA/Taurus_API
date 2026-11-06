@@ -17,8 +17,8 @@ assert.equal(
 );
 assert.equal(
   process.env.GITHUB_REF,
-  "refs/heads/main",
-  "Only main can publish production.",
+  "refs/heads/master",
+  "Only master can publish production.",
 );
 const sourceSha = process.env.GITHUB_SHA;
 assert.match(sourceSha ?? "", /^[a-f0-9]{40}$/);

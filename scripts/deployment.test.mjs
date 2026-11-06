@@ -21,7 +21,7 @@ test("publishes only validated artifacts, preserves production history and rejec
         stdio: ["pipe", "pipe", "pipe"],
       }).trim();
     git("init", "--bare", remote);
-    git("init", "--initial-branch=main");
+    git("init", "--initial-branch=master");
     git("config", "user.name", "Deployment test");
     git("config", "user.email", "deployment@test.invalid");
     await writeFile(join(workspace, "source.txt"), "source remains untouched");
@@ -29,14 +29,14 @@ test("publishes only validated artifacts, preserves production history and rejec
     git("commit", "-m", "Source");
     const sourceSha = git("rev-parse", "HEAD");
     git("remote", "add", "origin", remote);
-    git("push", "origin", "main");
+    git("push", "origin", "master");
     const artifact = join(workspace, "dist");
     await mkdir(artifact);
     await writeFile(join(artifact, "index.html"), "<h1>Ready</h1>");
     const env = {
       ...process.env,
       GITHUB_ACTIONS: "true",
-      GITHUB_REF: "refs/heads/main",
+      GITHUB_REF: "refs/heads/master",
       GITHUB_SHA: sourceSha,
       GITHUB_WORKSPACE: workspace,
       RUNNER_TEMP: runner,

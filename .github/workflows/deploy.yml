@@ -2,9 +2,9 @@ name: Backend CI and deployment
 
 on:
   push:
-    branches: [main]
+    branches: [master, dev]
   pull_request:
-    branches: [main]
+    branches: [master, dev]
   workflow_dispatch:
 
 permissions:
@@ -32,7 +32,7 @@ jobs:
 
   deploy:
     needs: validate
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

@@ -162,7 +162,7 @@ Los módulos de pagos, inventario y pedidos conservan validaciones y transaccion
 
 ## Despliegues con GitHub Actions
 
-El workflow `.github/workflows/deploy.yml` valida cada pull request y cada push a `main`. Solo los pushes a `main` o una ejecucion manual desde `main` pueden publicar. Si alguna prueba falla, no se actualiza produccion.
+El workflow `.github/workflows/deploy.yml` valida los pull requests y pushes a `master` y `dev`. Las ramas de trabajo se crean desde `dev`. Solo los pushes a `master` o una ejecucion manual desde `master` pueden publicar. Si alguna prueba falla, no se actualiza produccion.
 
 Actions publica un artefacto validado en la rama `production`, sin secretos ni dependencias instaladas. La rama conserva el historial de despliegues y contiene `deployment.json` con la revision fuente. El job de publicacion tiene `contents: write`; las pruebas solo tienen lectura. No se necesitan tokens personales ni claves de los proveedores en GitHub.
 
