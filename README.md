@@ -162,7 +162,7 @@ Los módulos de pagos, inventario y pedidos conservan validaciones y transaccion
 
 ## Despliegues con GitHub Actions
 
-GitHub Actions no hace llamadas HTTP a producción ni chequeos periódicos de disponibilidad. Las verificaciones públicas se realizan fuera de Actions.
+El workflow `keep-alive.yml`, autorizado para el backend, consulta `/api/health` cada 10 minutos y admite ejecución manual. Despierta el servicio por HTTP sin recompilar, reiniciar procesos, rotar sesiones ni escribir en la base. El cron de GitHub funciona como mejor esfuerzo y puede retrasarse. El frontend no tiene chequeos periódicos.
 
 El workflow `.github/workflows/deploy.yml` valida los pull requests y pushes a `master` y `dev`. Las ramas de trabajo se crean desde `dev`. Solo los pushes a `master` o una ejecucion manual desde `master` pueden publicar. Si alguna prueba falla, no se actualiza produccion.
 

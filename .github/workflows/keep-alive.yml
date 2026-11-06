@@ -1,0 +1,30 @@
+name: Keep backend awake
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: backend-keep-alive
+  cancel-in-progress: true
+
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      DEPLOYMENT_URL: ${{ vars.DEPLOYMENT_URL }}
+    steps:
+      - name: Wake and verify backend without rebuilding or restarting it
+        shell: bash
+        run: |
+          test -n "$DEPLOYMENT_URL"
+          curl --fail --silent --show-error --proto '=https' \
+            --connect-timeout 10 --max-time 75 \
+            --retry 3 --retry-all-errors --retry-delay 10 --retry-max-time 210 \
+            --output health.json "${DEPLOYMENT_URL%/}/api/health"
+          node -e "const fs = require('node:fs'); const assert = require('node:assert/strict'); assert.equal(JSON.parse(fs.readFileSync('health.json', 'utf8')).ok, true)"
+          echo 'Backend awake and healthy. No redeploy or database write performed.'
