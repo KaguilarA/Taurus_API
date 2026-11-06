@@ -17,10 +17,10 @@ The factory accepts an object with these fields:
 
 ## Recorded data
 
-After `res.json`, `res.send`, or `res.end` completes, the middleware attempts to save an entry containing the session user, resolved permission, action name, HTTP method, URL, body, route parameters, query parameters, and final status code. Custom metadata replaces the default metadata when `getMetadata` is supplied.
+After the response finishes, the middleware attempts to save one entry containing the session user, resolved permission, action name, HTTP method, route template, permission name and final status code. Bodies, raw URLs, route values and query strings are excluded because they can contain passwords, bill tokens or invoice data. Custom metadata replaces the default metadata when `getMetadata` is supplied; callers must use an explicit allowlist of nonsensitive fields.
 
 The middleware bypasses logging when no session user, action-log model, or resolvable permission exists. Persistence errors are reported to the server console and do not alter the response sent to the client.
 
 ## Response interception
 
-This module wraps Express response methods before calling `next()`. Apply it before the handler that completes the response. Do not mount it more than once on the same route, or a single response can be audited multiple times.
+This module subscribes once to the response `finish` event without wrapping response methods. Apply it before the handler that completes the response. Do not mount it more than once on the same route.

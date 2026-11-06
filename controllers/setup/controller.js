@@ -80,6 +80,8 @@ export function createSetupController({ production, origin } = {}) {
       req.session.regenerate((error) => (error ? reject(error) : resolve())),
     );
     req.session.userId = String(account._id);
+    req.session.authenticatedAt = Date.now();
+    req.session.lastActivityAt = req.session.authenticatedAt;
     req.session.userVersion = account.sessionVersion ?? 0;
     await new Promise((resolve, reject) =>
       req.session.save((error) => (error ? reject(error) : resolve())),

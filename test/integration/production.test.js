@@ -120,6 +120,25 @@ test("la sesión real de OWL emite cookie Secure detrás del proxy HTTPS", async
     .send({ username: "owner", password })
     .expect(403);
 });
+
+test("la política nueva conserva acceso a contraseñas existentes de 13 caracteres", async () => {
+  await UserModel.save({
+    username: "legacy-owner",
+    password: "Existing-2026",
+    role: "waiter",
+  });
+  await request(app)
+    .post("/api/auth/login")
+    .set("Origin", origin)
+    .set("X-Forwarded-Proto", "https")
+    .send({ username: "legacy-owner", password: "Existing-2026" })
+    .expect(200);
+  await request(app)
+    .post("/api/admin/accounts")
+    .set("Cookie", cookie)
+    .send({ username: "new-short", role: "waiter", password: "Existing-2026" })
+    .expect(400);
+});
 test("la subida multipart atraviesa el router real y la sesión OWL detrás de HTTPS", async () => {
   const png = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=",

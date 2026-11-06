@@ -89,6 +89,9 @@ test("las contraseñas de prueba no son válidas para producción", () => {
   for (const password of [
     "12345678",
     "123456789012",
+    "valid-but-14!!",
+    "$2b$12$" + "a".repeat(53),
+    "é".repeat(37),
     "Taurus-demo-2026!",
     "aaaaaaaaaaaa",
     " strong-password-with-spaces ",

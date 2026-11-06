@@ -23,17 +23,10 @@ export default ({
       if (typeof getMetadata === "function") return getMetadata(req, res);
       return {
         method: req.method,
-        url: req.originalUrl || req.url,
-        body: req.body || {},
-        params: req.params || {},
-        query: req.query || {},
+        route: req.route?.path ?? "unmatched",
         permission: req.permissionName || null,
       };
     };
-
-    const originalJson = res.json.bind(res);
-    const originalSend = res.send.bind(res);
-    const originalEnd = res.end.bind(res);
 
     const recordLog = async (statusCode) => {
       try {
@@ -57,28 +50,14 @@ export default ({
             statusCode,
           },
         });
-      } catch (error) {
-        console.error("Error registrando action log:", error);
+      } catch {
+        console.error("No se pudo registrar la acción.");
       }
     };
 
-    res.json = async function jsonWithLog(body) {
-      const result = await originalJson(body);
-      await recordLog(res.statusCode || 200);
-      return result;
-    };
-
-    res.send = async function sendWithLog(body) {
-      const result = await originalSend(body);
-      await recordLog(res.statusCode || 200);
-      return result;
-    };
-
-    res.end = async function endWithLog(chunk, encoding) {
-      const result = await originalEnd(chunk, encoding);
-      await recordLog(res.statusCode || 200);
-      return result;
-    };
+    res.once("finish", () => {
+      recordLog(res.statusCode || 200).catch(() => {});
+    });
 
     return next();
   };

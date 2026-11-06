@@ -60,6 +60,15 @@ after(async () => {
   await OwlMongoClose();
   if (replica) await replica.stop();
 });
+
+test("el registro HTTP rechaza hashes bcrypt sin crear una cuenta de clave débil", async () => {
+  const hash = "$2b$12$" + "a".repeat(53);
+  await admin
+    .post("/api/admin/accounts")
+    .send({ username: "hash-bypass", role: "waiter", password: hash })
+    .expect(400);
+  assert.equal(await UserModel.countDocuments({ username: "hash-bypass" }), 0);
+});
 test("perfil propio: autenticación, rol protegido, sin edición de otros usuarios", async () => {
   await request(app)
     .put("/api/admin/me")

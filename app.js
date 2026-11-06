@@ -4,6 +4,11 @@ import helmet from "helmet";
 import { OwlCors, OwlSession } from "owl-expressjs-utils";
 import { registerApi } from "./api/api.js";
 import { serveFrontend } from "./services/static-site.js";
+import {
+  enforceSessionLifetime,
+  SESSION_IDLE_MS,
+} from "./services/session-policy.js";
+import { randomUUID } from "node:crypto";
 export function createApp({
   sessionMiddleware,
   origin = process.env.FRONTEND_URL,
@@ -43,6 +48,14 @@ export function createApp({
       return res.status(403).json({ error: "Origen no permitido." });
     next();
   });
+  app.use((req, res, next) => {
+    if (
+      !["GET", "HEAD", "OPTIONS"].includes(req.method) &&
+      req.get("sec-fetch-site") === "cross-site"
+    )
+      return res.status(403).json({ error: "Origen no permitido." });
+    next();
+  });
   app.use(express.json({ limit: "256kb" }));
   app.use("/api", (req, res, next) => {
     res.set("Cache-Control", "no-store");
@@ -55,12 +68,14 @@ export function createApp({
       production ? "production" : "development",
       process.env.DB_NAME,
       uri,
+      { cookie: { maxAge: SESSION_IDLE_MS } },
     );
   app.locals.sessionMiddleware = sessions;
   app.locals.origin = origin;
   app.locals.production = production;
   app.use("/api", maintenanceMiddleware(maintenance));
   app.use(sessions);
+  app.use("/api", enforceSessionLifetime);
   registerApi(app, { origin, production, uploadImage, readPurchaseInvoice });
   if (frontendDist) serveFrontend(app, frontendDist);
   app.use((req, res) => res.status(404).json({ error: "Ruta no encontrada." }));
@@ -68,7 +83,11 @@ export function createApp({
     const status =
       err.status ??
       (["ValidationError", "CastError"].includes(err.name) ? 400 : 500);
-    if (status === 500) console.error(err);
+    if (status === 500) {
+      const incident = randomUUID();
+      res.set("X-Incident-ID", incident);
+      console.error(JSON.stringify({ incident, event: "request_failed" }));
+    }
     res.status(status).json({
       error:
         status === 500 ? "No se pudo completar la operación." : err.message,
