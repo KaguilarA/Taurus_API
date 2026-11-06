@@ -162,6 +162,8 @@ Los módulos de pagos, inventario y pedidos conservan validaciones y transaccion
 
 ## Despliegues con GitHub Actions
 
+La comprobación periódica principal del backend está en el Worker gratuito de Cloudflare `taurus-backend-health`, configurado cada diez minutos de forma independiente del cron de GitHub. Código, configuración y límites: [deploy/keep-alive](deploy/keep-alive/README.md). El Worker solo consulta salud pública; no tiene credenciales ni acceso a datos privados.
+
 El workflow `keep-alive.yml`, autorizado para el backend, consulta `/api/health` y la ruta pública `/api/setup/status` cada 10 minutos (minutos 3, 13, 23, 33, 43 y 53). Si falla cualquiera, solicita un redeploy mediante el secreto `RENDER_DEPLOY_HOOK` y comprueba la recuperación. Usa las variables `DEPLOYMENT_URL` y `PUBLIC_FRONTEND_URL`. La ejecución manual permite `recover: true` para probar el redeploy. El cron de GitHub es de mejor esfuerzo: puede retrasarse u omitirse y no garantiza disponibilidad continua de Render gratuito. El frontend no tiene un workflow periódico propio.
 
 El workflow `.github/workflows/deploy.yml` valida los pull requests y pushes a `master` y `dev`. Las ramas de trabajo se crean desde `dev`. Solo los pushes a `master` o una ejecucion manual desde `master` pueden publicar. Si alguna prueba falla, no se actualiza produccion.

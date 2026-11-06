@@ -1,0 +1,9 @@
+{
+  "name": "taurus-backend-health",
+  "main": "worker.js",
+  "compatibility_date": "2026-11-06",
+  "workers_dev": true,
+  "vars": { "BACKEND_ORIGIN": "https://felos-api.onrender.com" },
+  "triggers": { "crons": ["3-53/10 * * * *"] },
+  "observability": { "enabled": true },
+}
