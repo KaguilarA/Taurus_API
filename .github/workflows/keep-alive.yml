@@ -15,28 +15,47 @@ concurrency:
 jobs:
   health:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     env:
       DEPLOYMENT_URL: ${{ vars.DEPLOYMENT_URL }}
       PUBLIC_FRONTEND_URL: ${{ vars.PUBLIC_FRONTEND_URL }}
     steps:
       - name: Wake and verify backend without rebuilding or restarting it
+        id: health
+        continue-on-error: true
         shell: bash
         run: |
           test -n "$DEPLOYMENT_URL"
           curl --fail --silent --show-error --proto '=https' \
-            --connect-timeout 10 --max-time 75 \
-            --retry 3 --retry-all-errors --retry-delay 10 --retry-max-time 210 \
+            --connect-timeout 10 --max-time 65 \
+            --retry 1 --retry-all-errors --retry-delay 10 --retry-max-time 140 \
             --output health.json "${DEPLOYMENT_URL%/}/api/health"
           node -e "const fs = require('node:fs'); const assert = require('node:assert/strict'); assert.equal(JSON.parse(fs.readFileSync('health.json', 'utf8')).ok, true)"
           echo 'Backend awake and healthy. No redeploy or database write performed.'
       - name: Verify the same API route used by customer devices
+        id: gateway
+        continue-on-error: true
         if: always()
         shell: bash
         run: |
           test -n "$PUBLIC_FRONTEND_URL"
           curl --fail --silent --show-error --proto '=https' \
-            --connect-timeout 10 --max-time 75 \
-            --retry 2 --retry-delay 15 --retry-max-time 190 \
+            --connect-timeout 10 --max-time 65 \
+            --retry 1 --retry-delay 15 --retry-max-time 140 \
             --output setup.json "${PUBLIC_FRONTEND_URL%/}/api/setup/status"
           node -e "JSON.parse(require('node:fs').readFileSync('setup.json', 'utf8'))"
+      - name: Recover an unavailable backend through Render
+        if: steps.health.outcome == 'failure' || steps.gateway.outcome == 'failure'
+        shell: bash
+        env:
+          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          test -n "$RENDER_DEPLOY_HOOK"
+          curl --fail --silent --show-error --proto '=https' \
+            --connect-timeout 10 --max-time 30 \
+            --output /dev/null "$RENDER_DEPLOY_HOOK"
+          curl --fail --silent --show-error --proto '=https' \
+            --connect-timeout 10 --max-time 30 \
+            --retry 12 --retry-all-errors --retry-delay 15 --retry-max-time 240 \
+            --output recovered.json "${PUBLIC_FRONTEND_URL%/}/api/setup/status"
+          node -e "JSON.parse(require('node:fs').readFileSync('recovered.json', 'utf8'))"
