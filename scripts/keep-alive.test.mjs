@@ -9,7 +9,7 @@ test("scheduled health verifies the real JSON response without changing data", a
     async (url, options) => {
       calls++;
       assert.equal(url.href, "https://api.example.com/api/health");
-      assert.equal(options.redirect, "error");
+      assert.equal(options.redirect, "manual");
       assert.equal(options.body, undefined);
       assert.ok(options.signal instanceof AbortSignal);
       return Response.json({ ok: true });
