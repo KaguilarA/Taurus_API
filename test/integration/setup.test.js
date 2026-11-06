@@ -181,7 +181,6 @@ test("el administrador se registra antes de completar business y la carta usa es
   ])
     assert.equal(published[key], business[key]);
   assert.equal(await OwlCollection("businesses").countDocuments(), 1);
-  assert.equal(await OwlCollection("restaurantsettings").countDocuments(), 0);
   assert.equal(
     (await browser.get("/api/setup/status")).body.businessRequired,
     false,

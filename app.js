@@ -13,6 +13,7 @@ export function createApp({
   trustProxy = production ? 1 : 0,
   frontendDist,
   uploadImage,
+  readPurchaseInvoice,
   maintenance = process.env.MAINTENANCE_MODE === "true",
 } = {}) {
   if (!origin) throw new Error("Configurá el origen público de la aplicación.");
@@ -60,7 +61,7 @@ export function createApp({
   app.locals.production = production;
   app.use("/api", maintenanceMiddleware(maintenance));
   app.use(sessions);
-  registerApi(app, { origin, production, uploadImage });
+  registerApi(app, { origin, production, uploadImage, readPurchaseInvoice });
   if (frontendDist) serveFrontend(app, frontendDist);
   app.use((req, res) => res.status(404).json({ error: "Ruta no encontrada." }));
   app.use((err, req, res, next) => {

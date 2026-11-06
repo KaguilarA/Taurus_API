@@ -5,6 +5,8 @@ const model = {
   unit: String,
   reason: String,
   saleId: String,
+  invoiceId: String,
+  actorId: String,
   balance: Number,
 };
 export const ModelName = "StockMovement";

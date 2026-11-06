@@ -3,6 +3,21 @@ import { OwlCollection } from "owl-expressjs-utils";
 // Add query indexes without replacing existing indexes or modifying documents.
 export async function initializeQueryIndexes() {
   await Promise.all([
+    OwlCollection("products").createIndex(
+      { "supplierAliases.key": 1 },
+      {
+        unique: true,
+        partialFilterExpression: { "supplierAliases.key": { $type: "string" } },
+      },
+    ),
+    OwlCollection("purchaseinvoices").createIndex(
+      { fileHash: 1 },
+      { unique: true },
+    ),
+    OwlCollection("purchaseinvoices").createIndex(
+      { invoiceKey: 1 },
+      { unique: true, sparse: true },
+    ),
     OwlCollection("products").createIndex({
       active: 1,
       category: 1,

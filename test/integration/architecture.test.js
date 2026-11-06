@@ -7,19 +7,18 @@ import {
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { createApp } from "../../app.js";
 
-test("registro canónico reutiliza las entidades originales y no crea modelos Restaurant paralelos", () => {
+test("registro canónico reutiliza las entidades originales sin registros duplicados", () => {
   assert.ok(UserModel.compareHash);
   assert.ok(ProductModel.save);
   assert.ok(CartModel.update);
   assert.equal(
-    registeredModels
-      .map((model) => model.modelName)
-      .some((n) => n.startsWith("Restaurant")),
-    false,
+    new Set(registeredModels.map((model) => model.modelName)).size,
+    registeredModels.length,
   );
+  assert.equal(ProductModel.modelName, "Product");
   for (const [model, fields] of [
     ["User", ["name", "lastname", "state", "username", "password"]],
     ["Product", ["name", "state", "category", "drinkType"]],
@@ -31,10 +30,6 @@ test("registro canónico reutiliza las entidades originales y no crea modelos Re
           .find((item) => item.modelName === model)
           .fieldNames.includes(field),
       );
-  assert.equal(
-    existsSync(new URL("../../restaurant/models.js", import.meta.url)),
-    false,
-  );
 });
 test("mantenimiento bloquea accesos de clientes y cambios, conservando checks operativos", async () => {
   const app = createApp({

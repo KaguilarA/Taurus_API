@@ -14,7 +14,7 @@ Requiere Node.js 24, npm 12 y MongoDB Atlas o un replica set local. Copiá `.env
 
 Sin administrador, la aplicación abre `/setup`. Después de registrarlo con usuario y contraseña de al menos 12 caracteres, abre `/business/setup` para completar la información del negocio. Los guards verifican el estado en el servidor; el registro inicial queda cerrado cuando existe un administrador. No se crean usuarios desde variables ADMIN_* ni se cargan catálogos o marcas de ejemplo al arrancar.
 
-Nombre, subtítulo, textos, imágenes, contacto, moneda, color y medidas se guardan en el modelo **Business**, colección `businesses`. Si existe un perfil anterior en `restaurantsettings`, se copia conservando el original y sus valores. Si existen varios negocios antiguos, configurá `BUSINESS_ID` para elegir uno. La instalación sigue siendo para un solo negocio.
+Nombre, subtítulo, textos, imágenes, contacto, moneda, color y medidas se guardan exclusivamente en el modelo **Business**, colección `businesses`. El catálogo usa `products` y sus saldos usan `productstocks`. La instalación es para un solo negocio.
 
 Para MongoDB local, configurá las variables LOCAL_MONGO_* del ejemplo y usá `npm run db:start` / `npm run db:stop`. La conexión siempre viene del entorno. Las pruebas usan bases temporales separadas y no alteran tu base.
 
@@ -204,5 +204,7 @@ La vista del cliente está en `/cuenta`; los QR anteriores `/?mesa=...` siguen r
 Las líneas de pedidos tienen `fulfillmentStatus`: bebidas y snacks usan `pending → delivered`; comidas usan `preparing → ready → delivered`. `PATCH /api/admin/orders/:id` admite `itemIndex` para avanzar una línea, con permisos y transiciones validados en el servidor. No se cobran cuentas hasta que todas las líneas se hayan servido. Los registros anteriores se interpretan al leerlos sin sobrescribir su historial.
 
 ## Performance
+
+Facturas PDF/fotos, carga de existencias y precios de compra: ver [documentación de importación](docs/purchase-invoices.md).
 
 Public landing and administrator workspace reads run concurrently when independent. Transactional inventory and payment operations remain sequential within their sessions. Read-only settings use lean objects; public inventory queries project only owner and unit and skip empty product lists. Startup creates additive query indexes for active category/name pagination, order status/history, bill activity and movement history through OWL. Existing documents and indexes remain intact. Do not introduce response caches for inventory, session or payment state. Validate changes with `npm test`, `npm run format:check`, readiness and real endpoint timings; cold starts and network latency must be reported separately from warm requests.

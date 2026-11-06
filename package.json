@@ -34,6 +34,7 @@
     "helmet": "^8.3.0",
     "multer": "^2.5.0",
     "owl-expressjs-utils": "https://codeload.github.com/KaguilarA/owl-expressjs-utils/tar.gz/4b85d6d84a53c59926870c271fe084f2a7004fb3",
+    "pdf-parse": "2.4.5",
     "qrcode": "^1.5.4",
     "socket.io": "^4.8.4"
   },

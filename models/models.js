@@ -1,4 +1,9 @@
 import { OwlModel } from "owl-expressjs-utils";
+import PurchaseInvoiceData from "./purchaseInvoice/model.js";
+export const PurchaseInvoiceModel = OwlModel(
+  PurchaseInvoiceData.name,
+  PurchaseInvoiceData.model,
+);
 import ActionLogData from "./actionLog/model.js";
 import BusinessData from "./business/model.js";
 import CartData from "./cart/model.js";
@@ -81,6 +86,7 @@ export const PasswordResetModel = OwlModel(
 export const UserModelName = UserData.name;
 
 export const registeredModels = [
+  PurchaseInvoiceModel,
   ActionLogModel,
   BusinessModel,
   CartModel,

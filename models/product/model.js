@@ -17,6 +17,15 @@ const model = {
       enum: ["non_alcoholic", "alcoholic", ""],
     },
     price: { type: Number, min: 0, required: true },
+    // Net cost per unit (or full liquor bottle), after discount, excluding VAT.
+    purchasePrice: { type: Number, min: 0 },
+    supplierAliases: [
+      {
+        key: { type: String, required: true },
+        supplier: { type: String, required: true },
+        name: { type: String, required: true, maxlength: 300 },
+      },
+    ],
     prices: { large: Number, small: Number, shot: Number },
     bottleMl: { type: Number, default: 0 },
     productType: {
