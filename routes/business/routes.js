@@ -6,6 +6,8 @@ export function registerBusiness(options = {}) {
 
   const controller = createBusinessController(options);
   router.put("/api/admin/settings", controller.update);
+  router.get("/api/admin/seo", controller.readSeo);
+  router.put("/api/admin/seo", controller.updateSeo);
 
   return router;
 }

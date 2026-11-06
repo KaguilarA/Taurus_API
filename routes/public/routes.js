@@ -12,6 +12,8 @@ export function registerPublic(options = {}) {
   router.get("/api/deployment", controller.deployment);
   router.get("/api/ready", controller.ready);
   router.get("/api/public", controller.menu);
+  router.get("/api/seo", controller.seo);
+  router.get("/api/seo/sitemap", controller.sitemap);
 
   return router;
 }
