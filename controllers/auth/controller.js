@@ -56,9 +56,10 @@ export function createAuthController({ origin, production } = {}) {
       !(await UserModel.compareHash(String(account._id), "password", password))
     )
       throw new Problem("Credenciales inválidas.", 401);
-    if (production) assertProductionPassword(password);
     await asyncSession(req.session, "regenerate");
     req.session.userId = String(account._id);
+    req.session.authenticatedAt = Date.now();
+    req.session.lastActivityAt = req.session.authenticatedAt;
     req.session.userVersion = account.sessionVersion ?? 0;
     await asyncSession(req.session, "save");
     res.json({ authenticated: true, role: account.role ?? "admin" });

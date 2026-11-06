@@ -125,6 +125,12 @@ export async function readInvoice(file) {
           execArgv: ["--max-old-space-size=192"],
           serialization: "advanced",
           windowsHide: true,
+          // The document parser does not need database, session or cloud credentials.
+          env: Object.fromEntries(
+            ["PATH", "SystemRoot", "WINDIR", "TEMP", "TMP", "NODE_ENV"]
+              .filter((key) => process.env[key] !== undefined)
+              .map((key) => [key, process.env[key]]),
+          ),
           stdio: ["ignore", "ignore", "ignore", "ipc"],
         },
       );

@@ -91,15 +91,27 @@ export function runtimeConfig(env = process.env, { demo = false } = {}) {
   };
 }
 export function assertProductionPassword(password) {
+  assertPasswordRepresentation(password);
   if (
     typeof password !== "string" ||
     password !== password.trim() ||
-    password.length < 12 ||
+    password.length < 15 ||
     /^(.)\1+$/.test(password) ||
     ["123456789012", "password1234"].includes(password) ||
     /replace|changeme|example|demo/i.test(password)
   )
     throw new ConfigurationError(
-      "La contraseña de producción requiere al menos 12 caracteres y no puede ser una clave de prueba o de ejemplo.",
+      "La contraseña requiere al menos 15 caracteres y no puede ser una clave de prueba o de ejemplo.",
+    );
+}
+
+export function assertPasswordRepresentation(password) {
+  if (
+    typeof password !== "string" ||
+    Buffer.byteLength(password, "utf8") > 72 ||
+    /^\$2[aby]\$/.test(password)
+  )
+    throw new ConfigurationError(
+      "Usá una contraseña de máximo 72 bytes UTF-8; no se admiten hashes preprocesados.",
     );
 }

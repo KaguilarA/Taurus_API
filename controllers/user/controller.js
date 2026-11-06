@@ -1,7 +1,10 @@
 import { UserModel, PasswordResetModel } from "../../models/models.js";
 
 import { Problem, text, usernameInput } from "../../services/validation.js";
-import { assertProductionPassword } from "../../config/runtime.js";
+import {
+  assertProductionPassword,
+  assertPasswordRepresentation,
+} from "../../config/runtime.js";
 
 const saveSession = (session) =>
   new Promise((resolve, reject) =>
@@ -162,6 +165,7 @@ export function createAccountsController({ production } = {}) {
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
       throw new Problem("Correo inválido.");
     const password = text(req.body.password, "Contraseña", 200, true);
+    assertPasswordRepresentation(password);
     if (production) assertProductionPassword(password);
     if (password.length < 8)
       throw new Problem("La contraseña requiere al menos 8 caracteres.");

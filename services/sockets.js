@@ -3,6 +3,7 @@ import { UserModel, CartModel } from "../models/models.js";
 import { Server } from "socket.io";
 
 import { billActivity, hasStaffOrders } from "./order-activity.js";
+import { sessionExpired } from "./session-policy.js";
 
 export const ORDER_SOCKET_PATH = "/api/socket.io";
 
@@ -79,6 +80,7 @@ export function attachOrderSockets(
       : null;
     if (
       !account ||
+      sessionExpired(session) ||
       (session.userVersion ?? 0) !== (account.sessionVersion ?? 0) ||
       !["admin", "waiter", "kitchen"].includes(account.role ?? "admin")
     )
