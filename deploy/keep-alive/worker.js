@@ -20,7 +20,7 @@ export async function checkBackend(env, request = fetch) {
         Accept: "application/json",
         "User-Agent": "Taurus-Backend-Health/1.0",
       },
-        redirect: "manual",
+      redirect: "manual",
       signal: controller.signal,
     });
     if (
