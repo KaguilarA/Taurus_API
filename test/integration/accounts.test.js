@@ -18,12 +18,8 @@ import { productInput } from "../../services/validation.js";
 let replica, app, admin, waiter, victim;
 const password = "Account-tests-password-2026!";
 const nextPassword = "Updated-account-password-2026!";
-before(async () => {
-  replica = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
-  await OwlMongoConnect(replica.getUri("profile-recovery-tests"));
-  await initializeCatalog();
-  await Promise.all(registeredModels.map((m) => m.initialize()));
-  app = createApp({
+function accountApp() {
+  return createApp({
     origin: "http://localhost:4200",
     sessionMiddleware: session({
       secret: "profile-tests-long-session-secret-2026",
@@ -31,6 +27,13 @@ before(async () => {
       saveUninitialized: false,
     }),
   });
+}
+before(async () => {
+  replica = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+  await OwlMongoConnect(replica.getUri("profile-recovery-tests"));
+  await initializeCatalog();
+  await Promise.all(registeredModels.map((m) => m.initialize()));
+  app = accountApp();
   for (const [username, role] of [
     ["owner", "admin"],
     ["waiter", "waiter"],
@@ -123,7 +126,7 @@ test("admin edita otros perfiles y restablece incluso otra cuenta admin", async 
   }
   const updated = await admin
     .put(url)
-    .send({ ...data, role: "waiter", password: "ignored", sessionVersion: 999 })
+    .send({ ...data, password: "ignored", sessionVersion: 999 })
     .expect(200);
   assert.equal(updated.body.role, "admin");
   assert.equal(updated.body.password, undefined);
@@ -171,6 +174,123 @@ test("admin edita otros perfiles y restablece incluso otra cuenta admin", async 
     .put("/api/admin/accounts/000000000000000000000000/password")
     .send(replacement)
     .expect(404);
+});
+
+test("admin cambia roles sin alterar contraseñas y revoca permisos y sesiones anteriores", async () => {
+  const app = accountApp(),
+    admin = request.agent(app),
+    waiter = request.agent(app);
+  await admin
+    .post("/api/auth/login")
+    .send({ username: "owner", password })
+    .expect(200);
+  await waiter
+    .post("/api/auth/login")
+    .send({ username: "waiter", password })
+    .expect(200);
+  const target = await UserModel.save({
+    username: "role-target",
+    name: "Role target",
+    role: "waiter",
+    password,
+  });
+  const id = String(target._id);
+  const url = "/api/admin/accounts/" + id;
+  const oldSession = request.agent(app);
+  await oldSession
+    .post("/api/auth/login")
+    .send({ username: "role-target", password })
+    .expect(200);
+  const data = { name: "Role updated", username: "role-target", role: "admin" };
+  await waiter.put(url).send(data).expect(403);
+  await admin
+    .put(url)
+    .send({ ...data, role: "owner" })
+    .expect(400);
+  const own = (await admin.get("/api/admin/me")).body;
+  await admin
+    .put("/api/admin/accounts/" + own._id)
+    .send({ ...data, username: own.username })
+    .expect(400);
+  const promoted = await admin
+    .put(url)
+    .send({ ...data, password: "ignored", sessionVersion: 999 })
+    .expect(200);
+  assert.equal(promoted.body.role, "admin");
+  assert.equal(promoted.body.password, undefined);
+  await oldSession.get("/api/admin/me").expect(401);
+  const fresh = request.agent(app);
+  await fresh
+    .post("/api/auth/login")
+    .send({ username: data.username, password })
+    .expect(200);
+  await fresh.get("/api/admin/accounts").expect(200);
+  await admin
+    .put(url)
+    .send({ ...data, role: "kitchen" })
+    .expect(200);
+  await fresh.get("/api/admin/accounts").expect(401);
+  await fresh
+    .post("/api/auth/login")
+    .send({ username: data.username, password })
+    .expect(200);
+  await fresh.get("/api/admin/accounts").expect(403);
+  await admin
+    .put(url)
+    .send({ ...data, role: "kitchen" })
+    .expect(200);
+  await fresh.get("/api/admin/me").expect(200);
+  assert.equal((await UserModel.getById(id)).sessionVersion, 2);
+  assert.equal(await UserModel.compareHash(id, "password", password), true);
+  const version = (await UserModel.getById(own._id)).administrationVersion;
+  await admin
+    .put(url)
+    .send({ ...data, username: own.username })
+    .expect(409);
+  assert.equal((await UserModel.getById(id)).role, "kitchen");
+  assert.equal(
+    (await UserModel.getById(own._id)).administrationVersion,
+    version,
+  );
+});
+
+test("dos administradores no pueden degradarse simultáneamente y dejar ambas cuentas sin administración", async () => {
+  const app = accountApp();
+  const accounts = [];
+  const agents = [];
+  for (const username of ["role-race-a", "role-race-b"]) {
+    accounts.push(
+      await UserModel.save({
+        username,
+        name: username,
+        role: "admin",
+        password,
+      }),
+    );
+    const agent = request.agent(app);
+    await agent
+      .post("/api/auth/login")
+      .send({ username, password })
+      .expect(200);
+    agents.push(agent);
+  }
+  const results = await Promise.all(
+    agents.map((agent, i) => {
+      const target = accounts[1 - i];
+      return agent
+        .put("/api/admin/accounts/" + target._id)
+        .send({ name: target.name, username: target.username, role: "waiter" });
+    }),
+  );
+  assert.equal(results.filter((r) => r.status === 200).length, 1);
+  assert.ok(results.some((r) => [401, 403].includes(r.status)));
+  assert.equal(
+    await UserModel.countDocuments({
+      _id: { $in: accounts.map((a) => a._id) },
+      role: "admin",
+    }),
+    1,
+  );
 });
 
 test("restablecimientos admin concurrentes no sobrescriben la misma versión", async (t) => {

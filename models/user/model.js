@@ -14,6 +14,7 @@ const model = {
     password: { type: String, required: true },
     name: String,
     sessionVersion: { type: Number, default: 0 },
+    administrationVersion: { type: Number, default: 0 },
     role: {
       type: String,
       enum: ["admin", "kitchen", "waiter"],

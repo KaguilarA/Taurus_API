@@ -1,4 +1,5 @@
 import { UserModel, PasswordResetModel } from "../../models/models.js";
+import { OwlTransaction } from "owl-expressjs-utils";
 
 import { Problem, text, usernameInput } from "../../services/validation.js";
 import {
@@ -29,13 +30,27 @@ function profileInput(body) {
     username: usernameInput(body.username),
   };
 }
-async function updateProfile(id, body) {
+async function updateProfile(
+  id,
+  body,
+  { session, role, revokeSessions = false } = {},
+) {
   const data = profileInput(body);
+  if (role !== undefined) data.role = role;
   try {
     const account = await UserModel.update(
       id,
-      { $set: data },
-      { new: true, runValidators: true },
+      {
+        $set: data,
+        ...(revokeSessions ? { $inc: { sessionVersion: 1 } } : {}),
+      },
+      {
+        new: true,
+        runValidators: true,
+        select: "_id username name role",
+        lean: true,
+        session,
+      },
     );
     if (!account) throw new Problem("Usuario no encontrado.", 404);
     return profile(account);
@@ -126,7 +141,37 @@ export function createUserController({ production, origin } = {}) {
 }
 export function createAccountsController({ production } = {}) {
   const updateAccount = async (req, res) => {
-    res.json(await updateProfile(otherAccountId(req), req.body));
+    const id = otherAccountId(req);
+    const role = req.body.role;
+    if (role === undefined) return res.json(await updateProfile(id, req.body));
+    if (!["admin", "kitchen", "waiter"].includes(role))
+      throw new Problem("Rol inválido.");
+    profileInput(req.body);
+    const result = await OwlTransaction(async (session) => {
+      // Lock the acting administrator as well as the target. Two administrators
+      // cannot concurrently demote each other and leave the business without one.
+      const actor = await UserModel.updateWhere(
+        {
+          _id: req.account._id,
+          $or: [{ role: "admin" }, { role: { $exists: false } }],
+        },
+        { $inc: { administrationVersion: 1 } },
+        { session, select: "_id", lean: true, new: true },
+      );
+      if (!actor) throw new Problem("Tu rol no permite esta operación.", 403);
+      const target = await UserModel.getById(id, {
+        session,
+        select: "role",
+        lean: true,
+      });
+      if (!target) throw new Problem("Usuario no encontrado.", 404);
+      return updateProfile(id, req.body, {
+        session,
+        role,
+        revokeSessions: (target.role ?? "admin") !== role,
+      });
+    });
+    res.json(result);
   };
   const resetPassword = async (req, res) => {
     const id = otherAccountId(req);
